@@ -1,0 +1,263 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package com.stocktrack.app.ui
+
+import android.content.Intent
+import android.os.SystemClock
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.stocktrack.app.StockViewModel
+import com.stocktrack.app.data.User
+import com.stocktrack.app.data.XlsxWriter
+import com.stocktrack.app.data.isLow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+enum class Tab(val label: String, val icon: ImageVector, val adminOnly: Boolean = false) {
+    Dashboard("Dashboard", Icons.Default.Dashboard),
+    Items("Items", Icons.Default.Inventory2),
+    Activity("Activity", Icons.Default.History),
+    Reports("Reports", Icons.Default.Assessment),
+    Settings("Settings", Icons.Default.Settings, adminOnly = true),
+    Backup("Backup", Icons.Default.Backup, adminOnly = true)
+}
+
+@Composable
+fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger: () -> Unit) {
+    val items by vm.items.collectAsState()
+    val log by vm.log.collectAsState()
+    val config by vm.config.collectAsState()
+    val threshold = config.lowStockThreshold
+
+    var tab by rememberSaveable { mutableStateOf(Tab.Dashboard) }
+    var selectedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val lowCount = items.count { it.isLow(threshold) }
+
+    // Settings and Backup exist for the Admin only.
+    val visibleTabs = Tab.entries.filter { !it.adminOnly || isAdmin }
+    val activeTab = if (tab in visibleTabs) tab else Tab.Dashboard
+
+    // ---- inactivity timeout: back to the user list when nobody touched the screen for X minutes
+    var lastActive by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    val ping: () -> Unit = remember { { lastActive = SystemClock.elapsedRealtime() } }
+    LaunchedEffect(config.inactivityMinutes) {
+        lastActive = SystemClock.elapsedRealtime()
+        val limitMs = config.inactivityMinutes * 60_000L
+        if (limitMs > 0L) {
+            while (true) {
+                delay(2_000)
+                if (SystemClock.elapsedRealtime() - lastActive >= limitMs) {
+                    vm.switchUser()
+                    break
+                }
+            }
+        }
+    }
+
+    // Show one-off messages (stock moved, low stock alert, export done ...).
+    LaunchedEffect(Unit) {
+        vm.messages.collect { msg ->
+            launch {
+                val result = snackbar.showSnackbar(
+                    message = msg.text,
+                    actionLabel = if (msg.shareUri != null) "Share" else null,
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed && msg.shareUri != null) {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = XlsxWriter.MIME
+                        putExtra(Intent.EXTRA_STREAM, msg.shareUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(
+                        Intent.createChooser(send, "Share report")
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    )
+                }
+            }
+        }
+    }
+
+    CompositionLocalProvider(LocalActivityPing provides ping) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                // Watches every touch without consuming it, to restart the inactivity timer.
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent(PointerEventPass.Initial)
+                            ping()
+                        }
+                    }
+                }
+        ) {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbar) },
+                containerColor = MaterialTheme.colorScheme.background
+            ) { padding ->
+                Row(
+                    Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                ) {
+                    NavigationRail(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        header = {
+                            Icon(
+                                Icons.Default.Inventory2,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(top = 8.dp, bottom = 8.dp)
+                                    .size(32.dp)
+                            )
+                        }
+                    ) {
+                        visibleTabs.forEach { t ->
+                            NavigationRailItem(
+                                selected = activeTab == t,
+                                onClick = { tab = t },
+                                icon = {
+                                    if (t == Tab.Items && lowCount > 0) {
+                                        BadgedBox(badge = { Badge { Text("$lowCount") } }) {
+                                            Icon(t.icon, contentDescription = t.label)
+                                        }
+                                    } else {
+                                        Icon(t.icon, contentDescription = t.label)
+                                    }
+                                },
+                                label = { Text(t.label) },
+                                alwaysShowLabel = true
+                            )
+                        }
+                    }
+
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(24.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                // Press and hold for 3 seconds = hidden Admin sign-in.
+                                Text(
+                                    "DentTrack",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .holdToTrigger(3_000L, onAdminTrigger)
+                                        .padding(end = 24.dp, top = 4.dp, bottom = 4.dp)
+                                )
+                                Text(
+                                    activeTab.label,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            if (isAdmin) {
+                                Pill("Admin mode", Accent)
+                                Spacer(Modifier.size(12.dp))
+                            }
+                            FilledTonalButton(onClick = { vm.switchUser() }) {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.size(8.dp))
+                                Text("${user.name}  ·  Switch user", maxLines = 1)
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+
+                        Column(Modifier.weight(1f).fillMaxWidth()) {
+                            when (activeTab) {
+                                Tab.Dashboard -> DashboardScreen(
+                                    stock = items,
+                                    log = log,
+                                    threshold = threshold,
+                                    onOpenItem = { id ->
+                                        selectedItemId = id
+                                        tab = Tab.Items
+                                    }
+                                )
+                                Tab.Items -> ItemsScreen(
+                                    vm = vm,
+                                    stock = items,
+                                    log = log,
+                                    threshold = threshold,
+                                    isAdmin = isAdmin,
+                                    selectedId = selectedItemId,
+                                    onSelect = { selectedItemId = it }
+                                )
+                                Tab.Activity -> ActivityScreen(log)
+                                Tab.Reports -> ReportsScreen(
+                                    vm = vm,
+                                    stock = items,
+                                    threshold = threshold,
+                                    isAdmin = isAdmin,
+                                    config = config,
+                                    onOpenItem = { id ->
+                                        selectedItemId = id
+                                        tab = Tab.Items
+                                    }
+                                )
+                                Tab.Settings -> SettingsScreen(vm, config)
+                                Tab.Backup -> BackupScreen(vm, config)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

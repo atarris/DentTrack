@@ -1,0 +1,160 @@
+package com.stocktrack.app.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.stocktrack.app.data.Item
+import com.stocktrack.app.data.LogEntry
+import com.stocktrack.app.data.alertLevel
+import com.stocktrack.app.data.isLow
+import com.stocktrack.app.data.isOut
+import com.stocktrack.app.data.stockValue
+
+@Composable
+fun DashboardScreen(
+    stock: List<Item>,
+    log: List<LogEntry>,
+    threshold: Int,
+    onOpenItem: (Long) -> Unit
+) {
+    val alerts = stock.filter { it.isLow(threshold) }.sortedBy { it.quantity }
+    val lowCount = alerts.size
+
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            StatCard("Items", "${stock.size}", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatCard(
+                "Units in stock", "%,d".format(stock.sumOf { it.quantity.toLong() }),
+                MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
+            )
+            StatCard(
+                "Low stock alerts", "$lowCount",
+                if (lowCount > 0) Red else Green, Modifier.weight(1f)
+            )
+            StatCard(
+                "Stock value", formatMoney(stock.sumOf { it.stockValue() }),
+                MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
+            )
+        }
+
+        Row(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Panel(Modifier.weight(1f).fillMaxHeight()) {
+                SectionTitle("Low stock alerts")
+                if (alerts.isEmpty()) {
+                    EmptyText(
+                        if (stock.isEmpty()) "No items yet. Add your first item on the Items tab."
+                        else "Nothing is running low.",
+                        Modifier.fillMaxWidth()
+                    )
+                } else {
+                    LazyColumn(Modifier.weight(1f)) {
+                        items(alerts, key = { it.id }) { item ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onOpenItem(item.id) }
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        item.name, fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "Alert level ${item.alertLevel(threshold)} ${item.unit}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Pill(
+                                    if (item.isOut()) "Out of stock" else "${item.quantity} ${item.unit} left",
+                                    Red
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                }
+            }
+
+            Panel(Modifier.weight(1f).fillMaxHeight()) {
+                SectionTitle("Recent activity")
+                if (log.isEmpty()) {
+                    EmptyText("No activity yet.", Modifier.fillMaxWidth())
+                } else {
+                    LazyColumn(Modifier.weight(1f)) {
+                        items(log.take(25), key = { it.id }) { entry ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        entry.itemName, fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "${actionLabel(entry.type)} · ${entry.userName} · ${formatTime(entry.timestamp)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(Modifier.height(0.dp))
+                                Text(
+                                    formatChange(entry.change),
+                                    fontWeight = FontWeight.Bold,
+                                    color = actionColor(entry.type)
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, accent: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+    Panel(modifier) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                label, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                value, style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold, color = accent, maxLines = 1
+            )
+        }
+    }
+}
