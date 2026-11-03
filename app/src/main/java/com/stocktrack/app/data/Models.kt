@@ -16,6 +16,9 @@ data class Category(
     @PrimaryKey val name: String
 )
 
+/** How the default unit is saved and written to reports. The screens show it as R.string.unit_pcs. */
+const val DEFAULT_UNIT = "pcs"
+
 /** A stock item. */
 @Entity(tableName = "items")
 data class Item(
@@ -24,7 +27,7 @@ data class Item(
     val sku: String = "",
     val category: String = "",
     val location: String = "",
-    val unit: String = "pcs",
+    val unit: String = DEFAULT_UNIT,
     val quantity: Int = 0,
     /** Low-stock alert level. 0 = no alert level set. */
     val minQuantity: Int = 0,

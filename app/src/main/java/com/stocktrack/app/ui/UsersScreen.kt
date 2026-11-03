@@ -2,6 +2,8 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +58,7 @@ fun UsersScreen(vm: StockViewModel) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "These people are shown on the start screen.",
+                stringResource(R.string.users_intro),
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -88,7 +90,7 @@ fun UsersScreen(vm: StockViewModel) {
                         }
                         if (!user.isAdminAccount()) {
                             IconButton(onClick = { toDelete = user }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove ${user.name}", tint = Red)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remove_named, user.name), tint = Red)
                             }
                         }
                     }
@@ -103,12 +105,12 @@ fun UsersScreen(vm: StockViewModel) {
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAdd = false },
-            title = { Text("Add user") },
+            title = { Text(stringResource(R.string.add_user)) },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.name)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth()
@@ -118,9 +120,9 @@ fun UsersScreen(vm: StockViewModel) {
                 Button(
                     enabled = name.isNotBlank(),
                     onClick = { vm.addUser(name); showAdd = false }
-                ) { Text("Add") }
+                ) { Text(stringResource(R.string.add)) }
             },
-            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
@@ -128,15 +130,15 @@ fun UsersScreen(vm: StockViewModel) {
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { toDelete = null },
-            title = { Text("Remove ${user.name}?") },
-            text = { Text("Their name is removed from the list. Entries they already made stay in the activity log.") },
+            title = { Text(stringResource(R.string.remove_user_title, user.name)) },
+            text = { Text(stringResource(R.string.remove_user_text)) },
             confirmButton = {
                 Button(
                     onClick = { vm.deleteUser(user); toDelete = null },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Remove") }
+                ) { Text(stringResource(R.string.remove)) }
             },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -151,8 +153,9 @@ private fun AddUserButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.size(8.dp))
-        Text("Add user", fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.add_user), fontWeight = FontWeight.SemiBold)
     }
 }
 
-fun userRole(user: User): String = if (user.isAdminAccount()) "Administrator" else "User"
+@Composable
+fun userRole(user: User): String = if (user.isAdminAccount()) stringResource(R.string.role_admin) else stringResource(R.string.role_user)

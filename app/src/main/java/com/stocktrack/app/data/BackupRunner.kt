@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.work.Constraints
+import com.stocktrack.app.R
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -35,9 +36,10 @@ object BackupRunner {
         val app = context.applicationContext
         val settings = AppSettings(app)
         val config = settings.state.value
+        val text = Language.context(app)
 
         if (!config.backupLocal && !config.backupDrive) {
-            return finish(settings, "Choose at least one backup destination", false)
+            return finish(settings, text.getString(R.string.run_choose_destination), false)
         }
 
         val dao = AppDatabase.get(app).dao()
@@ -56,11 +58,11 @@ object BackupRunner {
 
         if (config.backupLocal) {
             try {
-                val where = withContext(Dispatchers.IO) { writeLocal(app, config.backupFolderUri, fileName, bytes) }
-                parts.add("Local: saved to $where")
+                val where = withContext(Dispatchers.IO) { writeLocal(app, text, config.backupFolderUri, fileName, bytes) }
+                parts.add(text.getString(R.string.run_local_saved, where))
             } catch (e: Exception) {
                 allOk = false
-                parts.add("Local failed: ${e.message ?: e.javaClass.simpleName}")
+                parts.add(text.getString(R.string.run_local_failed, e.message ?: e.javaClass.simpleName))
             }
         }
 
@@ -69,20 +71,20 @@ object BackupRunner {
                 when (val auth = DriveBackup.authorize(app)) {
                     is DriveBackup.Auth.Token -> {
                         DriveBackup.upload(auth.value, fileName, bytes)
-                        parts.add("Google Drive: uploaded")
+                        parts.add(text.getString(R.string.run_drive_uploaded))
                     }
                     is DriveBackup.Auth.NeedsConsent -> {
                         allOk = false
-                        parts.add("Google Drive: permission needed. Open Backup and tap Connect")
+                        parts.add(text.getString(R.string.run_drive_permission))
                     }
                     is DriveBackup.Auth.Failed -> {
                         allOk = false
-                        parts.add("Google Drive failed: ${auth.reason}")
+                        parts.add(text.getString(R.string.run_drive_failed, auth.reason))
                     }
                 }
             } catch (e: Exception) {
                 allOk = false
-                parts.add("Google Drive failed: ${e.message ?: e.javaClass.simpleName}")
+                parts.add(text.getString(R.string.run_drive_failed, e.message ?: e.javaClass.simpleName))
             }
         }
 
@@ -95,17 +97,17 @@ object BackupRunner {
     }
 
     /** Writes into the folder the Admin picked, or into the app's own storage folder. */
-    private fun writeLocal(context: Context, folderUri: String?, fileName: String, bytes: ByteArray): String {
+    private fun writeLocal(context: Context, text: Context, folderUri: String?, fileName: String, bytes: ByteArray): String {
         if (folderUri != null) {
             val resolver = context.contentResolver
             val tree = Uri.parse(folderUri)
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
             val document = DocumentsContract.createDocument(resolver, parent, XlsxWriter.MIME, fileName)
-                ?: throw IOException("could not create a file in the chosen folder")
+                ?: throw IOException(text.getString(R.string.run_cannot_create_file))
             val stream = resolver.openOutputStream(document)
-                ?: throw IOException("could not write to the chosen folder")
+                ?: throw IOException(text.getString(R.string.run_cannot_write))
             stream.use { it.write(bytes) }
-            return "the chosen folder"
+            return text.getString(R.string.run_chosen_folder)
         }
         val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
         dir.mkdirs()

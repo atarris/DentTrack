@@ -2,7 +2,10 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import android.content.Intent
+import androidx.annotation.StringRes
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -66,14 +70,15 @@ import com.stocktrack.app.data.isLow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-enum class Tab(val label: String, val icon: ImageVector, val adminOnly: Boolean = false) {
-    Dashboard("Dashboard", Icons.Default.Dashboard),
-    Items("Items", Icons.Default.Inventory2),
-    Activity("Activity", Icons.Default.History),
-    Reports("Reports", Icons.Default.Assessment),
-    Users("Users", Icons.Default.Group, adminOnly = true),
-    Settings("Settings", Icons.Default.Settings, adminOnly = true),
-    Backup("Backup", Icons.Default.Backup, adminOnly = true)
+enum class Tab(@StringRes val label: Int,val icon: ImageVector, val adminOnly: Boolean = false) {
+    Dashboard(R.string.tab_dashboard,Icons.Default.Dashboard),
+    Items(R.string.tab_items,Icons.Default.Inventory2),
+    Activity(R.string.tab_activity,Icons.Default.History),
+    Reports(R.string.tab_reports,Icons.Default.Assessment),
+    Users(R.string.tab_users,Icons.Default.Group, adminOnly = true),
+    Settings(R.string.tab_settings,Icons.Default.Settings, adminOnly = true),
+    Backup(R.string.tab_backup, Icons.Default.Backup, adminOnly = true),
+    Info(R.string.tab_info, Icons.Default.Info)
 }
 
 @Composable
@@ -117,7 +122,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
             launch {
                 val result = snackbar.showSnackbar(
                     message = msg.text,
-                    actionLabel = if (msg.shareUri != null) "Share" else null,
+                    actionLabel = if (msg.shareUri != null) context.getString(R.string.share) else null,
                     duration = SnackbarDuration.Long
                 )
                 if (result == SnackbarResult.ActionPerformed && msg.shareUri != null) {
@@ -127,7 +132,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(
-                        Intent.createChooser(send, "Share report")
+                        Intent.createChooser(send, context.getString(R.string.share_report))
                             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     )
                 }
@@ -166,7 +171,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                             IconButton(onClick = { vm.switchUser() }) {
                                 Icon(
                                     Icons.Default.Inventory2,
-                                    contentDescription = "Back to user selection",
+                                    contentDescription = stringResource(R.string.back_to_users),
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(32.dp)
                                 )
@@ -185,13 +190,13 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                     icon = {
                                         if (t == Tab.Items && lowCount > 0) {
                                             BadgedBox(badge = { Badge { Text("$lowCount") } }) {
-                                                Icon(t.icon, contentDescription = t.label)
+                                                Icon(t.icon, contentDescription = stringResource(t.label))
                                             }
                                         } else {
-                                            Icon(t.icon, contentDescription = t.label)
+                                            Icon(t.icon, contentDescription = stringResource(t.label))
                                         }
                                     },
-                                    label = { Text(t.label, maxLines = 1, softWrap = false) },
+                                    label = { Text(stringResource(t.label), maxLines = 1, softWrap = false) },
                                     alwaysShowLabel = true
                                 )
                             }
@@ -217,19 +222,19 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                         .padding(end = 24.dp, top = 4.dp, bottom = 4.dp)
                                 )
                                 Text(
-                                    activeTab.label,
+                                    stringResource(activeTab.label),
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             if (isAdmin) {
-                                Pill("Admin mode", Accent)
+                                Pill(stringResource(R.string.admin_mode), Accent)
                                 Spacer(Modifier.size(12.dp))
                             }
                             FilledTonalButton(onClick = { vm.switchUser() }) {
                                 Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
-                                Text("${user.name}  ·  Switch user", maxLines = 1)
+                                Text(stringResource(R.string.switch_user, user.name), maxLines = 1)
                             }
                         }
                         Spacer(Modifier.height(16.dp))
@@ -276,6 +281,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                 Tab.Users -> UsersScreen(vm)
                                 Tab.Settings -> SettingsScreen(vm, config)
                                 Tab.Backup -> BackupScreen(vm, config)
+                                Tab.Info -> InfoScreen()
                             }
                         }
                     }

@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -19,11 +20,13 @@ import com.stocktrack.app.data.BackupRunner
 import com.stocktrack.app.data.BackupSchedule
 import com.stocktrack.app.data.BackupScheduler
 import com.stocktrack.app.data.Category
+import com.stocktrack.app.data.DEFAULT_UNIT
 import com.stocktrack.app.data.DriveBackup
 import com.stocktrack.app.data.MonthlyReport
 import com.stocktrack.app.data.MonthlyReportRunner
 import com.stocktrack.app.data.MonthlyReportScheduler
 import com.stocktrack.app.data.StockImporter
+import com.stocktrack.app.data.Language
 import com.stocktrack.app.data.Item
 import com.stocktrack.app.data.LogEntry
 import com.stocktrack.app.data.ReportBuilder
@@ -118,9 +121,16 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
 
     fun showMessage(text: String) = say(text)
 
+    /** A text in the app's chosen language. */
+    private fun tr(@StringRes id: Int, vararg args: Any): String =
+        Language.context(getApplication()).getString(id, *args)
+
+    private fun unitText(unit: String): String =
+        if (unit.equals(DEFAULT_UNIT, ignoreCase = true)) tr(R.string.unit_pcs) else unit
+
     private fun requireAdmin(): Boolean {
         if (isAdmin.value) return true
-        say("Only the Admin can do this")
+        say(tr(R.string.msg_only_admin))
         return false
     }
 
@@ -145,8 +155,8 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val exists = users.value.orEmpty().any { it.name.equals(clean, ignoreCase = true) }
             when {
-                clean.equals(ADMIN_NAME, ignoreCase = true) -> say("\"$ADMIN_NAME\" is a reserved name")
-                exists -> say("A user named \"$clean\" already exists")
+                clean.equals(ADMIN_NAME, ignoreCase = true) -> say(tr(R.string.msg_reserved_name, ADMIN_NAME))
+                exists -> say(tr(R.string.msg_user_exists, clean))
                 else -> dao.insertUser(User(name = clean))
             }
         }
@@ -157,7 +167,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             if (user.isAdminAccount()) return@launch
             if (users.value.orEmpty().count { !it.isAdminAccount() } <= 1) {
-                say("At least one user must remain")
+                say(tr(R.string.msg_one_user_must_remain))
                 return@launch
             }
             dao.deleteUser(user.id)
@@ -213,7 +223,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         appSettings.setAdminPassword(new)
-        say("Admin password changed")
+        say(tr(R.string.msg_password_changed))
         onResult(true)
     }
 
@@ -228,7 +238,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         appSettings.removeAdminPassword()
-        say("Admin password removed")
+        say(tr(R.string.msg_password_removed))
         onResult(true)
     }
 
@@ -236,7 +246,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun setAdminPassword(new: String) {
         if (!requireAdmin() || new.isEmpty() || appSettings.hasAdminPassword()) return
         appSettings.setAdminPassword(new)
-        say("Admin password set")
+        say(tr(R.string.msg_password_set))
     }
 
     // ------------------------------------------------------------- settings
@@ -244,22 +254,27 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun setLowStockThreshold(value: Int) {
         if (!requireAdmin()) return
         appSettings.setLowStockThreshold(value)
-        say("Low stock threshold set to ${appSettings.state.value.lowStockThreshold}")
+        say(tr(R.string.msg_threshold_set, appSettings.state.value.lowStockThreshold))
     }
 
     fun setInactivityMinutes(value: Int) {
         if (!requireAdmin()) return
         appSettings.setInactivityMinutes(value)
         val minutes = appSettings.state.value.inactivityMinutes
-        say(if (minutes == 0) "Automatic log-out is off" else "Users are logged out after $minutes min of inactivity")
+        say(if (minutes == 0) tr(R.string.msg_logout_off) else tr(R.string.msg_logout_after, minutes))
+    }
+
+    /** Saves the language. The caller restarts the screen to apply it. */
+    fun setLanguage(language: String) {
+        if (requireAdmin()) appSettings.setLanguage(language)
     }
 
     fun setHideAdmin(hide: Boolean) {
         if (!requireAdmin()) return
         appSettings.setHideAdmin(hide)
         say(
-            if (hide) "Admin is hidden. Hold the DentTrack title for 3 seconds to sign in."
-            else "Admin is now shown on the user selection screen"
+            if (hide) tr(R.string.msg_admin_hidden)
+            else tr(R.string.msg_admin_shown)
         )
     }
 
@@ -277,7 +292,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         appSettings.resetConfig()
         BackupScheduler.apply(app, appSettings.state.value, replace = true)
         MonthlyReportScheduler.apply(app, appSettings.state.value.monthlyDrive, replace = true)
-        say("App configuration reset to defaults")
+        say(tr(R.string.msg_reset_done))
     }
 
     // ---------------------------------------------------------- activity log
@@ -287,7 +302,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         if (!requireAdmin()) return
         viewModelScope.launch {
             dao.clearLog()
-            say("Activity log cleared")
+            say(tr(R.string.msg_log_cleared))
         }
     }
 
@@ -354,10 +369,10 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val exists = dao.categoriesOnce().any { it.name.equals(clean, ignoreCase = true) }
             if (exists) {
-                say("The category \"$clean\" already exists")
+                say(tr(R.string.msg_category_exists, clean))
             } else {
                 dao.insertCategory(Category(clean))
-                say("Category \"$clean\" added")
+                say(tr(R.string.msg_category_added, clean))
             }
         }
     }
@@ -381,7 +396,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 count
             }
-            say(if (changed > 0) "Category \"$name\" deleted, $changed items now have no category" else "Category \"$name\" deleted")
+            say(if (changed > 0) tr(R.string.msg_category_deleted_items, name, changed) else tr(R.string.msg_category_deleted, name))
         }
     }
 
@@ -401,7 +416,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 )
             }
-            say("\"${item.name}\" removed")
+            say(tr(R.string.msg_item_removed, item.name))
             onDone()
         }
     }
@@ -415,11 +430,11 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             val user = who()
             val result = db.withTransaction {
                 val cur = dao.item(item.id)
-                    ?: return@withTransaction MoveResult("This item no longer exists", null)
+                    ?: return@withTransaction MoveResult(tr(R.string.msg_item_gone), null)
                 val delta = if (type == ActionType.CHECK_OUT) -qty else qty
                 val newQty = cur.quantity + delta
                 if (newQty < 0) {
-                    return@withTransaction MoveResult("Only ${cur.quantity} ${cur.unit} in stock", null)
+                    return@withTransaction MoveResult(tr(R.string.msg_only_in_stock, cur.quantity, unitText(cur.unit)), null)
                 }
                 val updated = cur.copy(quantity = newQty)
                 dao.updateItem(updated)
@@ -434,14 +449,15 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             }
             val updated = result.updated
             if (result.error != null || updated == null) {
-                say(result.error ?: "Could not update stock")
+                say(result.error ?: tr(R.string.msg_could_not_update))
                 return@launch
             }
-            val verb = if (type == ActionType.CHECK_IN) "Checked in" else "Checked out"
-            say("$verb $qty ${updated.unit} · ${updated.name} now ${updated.quantity} ${updated.unit}")
+            val moved = if (type == ActionType.CHECK_IN) R.string.msg_moved_in else R.string.msg_moved_out
+            val unit = unitText(updated.unit)
+            say(tr(moved, qty, unit, updated.name, updated.quantity, unit))
             val threshold = appSettings.state.value.lowStockThreshold
             if (type == ActionType.CHECK_OUT && updated.isLow(threshold)) {
-                say("Low stock alert: ${updated.name} is at ${updated.quantity} (alert level ${updated.alertLevel(threshold)})")
+                say(tr(R.string.msg_low_alert, updated.name, updated.quantity, updated.alertLevel(threshold)))
             }
         }
     }
@@ -470,7 +486,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 removed
             }
-            say("Stock database cleared, $count items removed")
+            say(tr(R.string.msg_stock_cleared, count))
         }
     }
 
@@ -492,9 +508,9 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                         ?: throw IllegalStateException("Cannot open the selected file")
                     stream.use { it.write(bytes) }
                 }
-                _messages.tryEmit(UiMessage("Excel report saved", uri))
+                _messages.tryEmit(UiMessage(tr(R.string.msg_report_saved), uri))
             } catch (e: Exception) {
-                say("Export failed: ${e.message ?: e.javaClass.simpleName}")
+                say(tr(R.string.msg_export_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -514,9 +530,9 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                         ?: throw IllegalStateException("Cannot open the selected file")
                     stream.use { it.write(bytes) }
                 }
-                _messages.tryEmit(UiMessage("Monthly report $year saved", uri))
+                _messages.tryEmit(UiMessage(tr(R.string.msg_monthly_saved, year), uri))
             } catch (e: Exception) {
-                say("Export failed: ${e.message ?: e.javaClass.simpleName}")
+                say(tr(R.string.msg_export_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -525,7 +541,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun setMonthlyDrive(enabled: Boolean) {
         if (!requireAdmin()) return
         if (enabled && !appSettings.state.value.driveConnected) {
-            say("Connect Google Drive first (Backup tab)")
+            say(tr(R.string.msg_connect_drive_first))
             return
         }
         if (enabled) {
@@ -534,14 +550,14 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         }
         appSettings.setMonthlyDrive(enabled)
         MonthlyReportScheduler.apply(getApplication(), enabled, replace = true)
-        say(if (enabled) "The Monthly Report will be saved to Google Drive on the 1st of each month" else "Monthly Drive upload is off")
+        say(tr(if (enabled) R.string.msg_monthly_on else R.string.msg_monthly_off))
     }
 
     /** Builds the report for [year] and uploads it to Google Drive right now (also a way to test the setup). */
     fun uploadMonthlyReportNow(year: Int) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            say("Uploading…")
+            say(tr(R.string.msg_uploading))
             val now = System.currentTimeMillis()
             val result = MonthlyReportRunner.uploadReport(getApplication(), year, now)
             appSettings.setLastMonthly(now, result.message)
@@ -582,7 +598,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                     uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
             } catch (e: Exception) {
-                say("Could not keep access to that folder: ${e.message ?: ""}")
+                say(tr(R.string.msg_folder_access_failed, e.message ?: ""))
                 return
             }
         }
@@ -593,7 +609,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun backupNow() {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            say("Backing up…")
+            say(tr(R.string.msg_backing_up))
             val outcome = BackupRunner.run(getApplication(), "Manual backup by ${who()}")
             say(outcome.message)
         }
@@ -608,10 +624,10 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             when (val auth = DriveBackup.authorize(getApplication())) {
                 is DriveBackup.Auth.Token -> {
                     appSettings.setDriveConnected(true)
-                    say("Google Drive is connected")
+                    say(tr(R.string.msg_drive_connected))
                 }
                 is DriveBackup.Auth.NeedsConsent -> launchConsent(auth.intent)
-                is DriveBackup.Auth.Failed -> say("Google Drive: ${auth.reason}")
+                is DriveBackup.Auth.Failed -> say(tr(R.string.msg_drive_reason, auth.reason))
             }
         }
     }
@@ -621,9 +637,9 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             Identity.getAuthorizationClient(getApplication<Application>())
                 .getAuthorizationResultFromIntent(data)
             appSettings.setDriveConnected(true)
-            say("Google Drive is connected")
+            say(tr(R.string.msg_drive_connected))
         } catch (e: Exception) {
-            say("Google Drive was not connected")
+            say(tr(R.string.drive_not_connected))
         }
     }
 
@@ -637,16 +653,16 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 val bytes = withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openInputStream(uri)
                         ?.use { it.readBytes() }
-                        ?: throw BackupException("the file could not be opened")
+                        ?: throw BackupException(R.string.err_file_not_opened)
                 }
-                if (bytes.size > MAX_RESTORE_BYTES) throw BackupException("the file is too large")
+                if (bytes.size > MAX_RESTORE_BYTES) throw BackupException(R.string.err_file_too_large)
                 val parsed = withContext(Dispatchers.Default) { BackupCodec.parse(bytes) }
                 db.withTransaction { BackupCodec.restore(dao, parsed) }
-                say("Restored ${parsed.items.size} items and ${parsed.log.size} log entries")
+                say(tr(R.string.msg_restored, parsed.items.size, parsed.log.size))
             } catch (e: BackupException) {
-                say("Restore failed: ${e.message}")
+                say(tr(R.string.msg_restore_failed, tr(e.res, *e.args)))
             } catch (e: Exception) {
-                say("Restore failed: ${e.message ?: e.javaClass.simpleName}")
+                say(tr(R.string.msg_restore_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -661,16 +677,16 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 val bytes = withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openInputStream(uri)
                         ?.use { it.readBytes() }
-                        ?: throw BackupException("the file could not be opened")
+                        ?: throw BackupException(R.string.err_file_not_opened)
                 }
-                if (bytes.size > MAX_RESTORE_BYTES) throw BackupException("the file is too large")
+                if (bytes.size > MAX_RESTORE_BYTES) throw BackupException(R.string.err_file_too_large)
                 val existing = items.value.map { StockImporter.key(it.category, it.name) }.toHashSet()
                 val cats = categories.value.toHashSet()
                 onLoaded(withContext(Dispatchers.Default) { StockImporter.parse(bytes, existing, cats) })
             } catch (e: BackupException) {
-                say("Import failed: ${e.message}")
+                say(tr(R.string.msg_import_failed, tr(e.res, *e.args)))
             } catch (e: Exception) {
-                say("Import failed: ${e.message ?: e.javaClass.simpleName}")
+                say(tr(R.string.msg_import_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -684,9 +700,9 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 val added = db.withTransaction {
                     StockImporter.insertAll(dao, rows, user, System.currentTimeMillis())
                 }
-                say("Imported $added items")
+                say(tr(R.string.msg_imported, added))
             } catch (e: Exception) {
-                say("Import failed: ${e.message ?: e.javaClass.simpleName}")
+                say(tr(R.string.msg_import_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }

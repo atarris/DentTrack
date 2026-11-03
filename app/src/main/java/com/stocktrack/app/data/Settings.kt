@@ -3,17 +3,19 @@ package com.stocktrack.app.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
+import androidx.annotation.StringRes
+import com.stocktrack.app.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.security.MessageDigest
 import java.security.SecureRandom
 
-enum class BackupSchedule(val label: String, val days: Long) {
-    OFF("Off", 0),
-    DAILY("Daily", 1),
-    WEEKLY("Weekly", 7),
-    MONTHLY("Monthly", 30)
+enum class BackupSchedule(@StringRes val label: Int, val days: Long) {
+    OFF(R.string.schedule_off, 0),
+    DAILY(R.string.schedule_daily, 1),
+    WEEKLY(R.string.schedule_weekly, 7),
+    MONTHLY(R.string.schedule_monthly, 30)
 }
 
 /** Everything the Settings and Backup screens show. The admin password is kept out of this class. */
@@ -37,7 +39,9 @@ data class AppConfig(
     val lastMonthlyStatus: String = "",
     val adminPasswordSet: Boolean = false,
     /** true = the Admin removed the password, so the Admin menu opens without asking for one. */
-    val adminPasswordRemoved: Boolean = false
+    val adminPasswordRemoved: Boolean = false,
+    /** Language of the app's screens (see [Language]). Reports and backup files stay in English. */
+    val language: String = Language.ENGLISH
 )
 
 /** Small key/value store (SharedPreferences) with a StateFlow so screens update live. */
@@ -75,7 +79,8 @@ class AppSettings(context: Context) {
         lastMonthlyAt = prefs.getLong(K_MONTHLY_AT, 0L),
         lastMonthlyStatus = prefs.getString(K_MONTHLY_STATUS, "") ?: "",
         adminPasswordSet = prefs.contains(K_PW_HASH),
-        adminPasswordRemoved = prefs.getBoolean(K_PW_REMOVED, false)
+        adminPasswordRemoved = prefs.getBoolean(K_PW_REMOVED, false),
+        language = prefs.getString(Language.PREF_KEY, Language.ENGLISH) ?: Language.ENGLISH
     )
 
     private fun edit(block: SharedPreferences.Editor.() -> Unit) {
@@ -101,7 +106,13 @@ class AppSettings(context: Context) {
 
     fun setHideAdmin(value: Boolean) = edit { putBoolean(K_HIDE_ADMIN, value) }
 
-    /** Back to the default settings. The current user and the Admin password are not configuration. */
+    /** Written at once (not in the background), because the screen restarts right after to apply it. */
+    fun setLanguage(value: String) {
+        prefs.edit().putString(Language.PREF_KEY, value).commit()
+        _state.value = read()
+    }
+
+    /** Back to the default settings. The current user, the language and the Admin password are not configuration. */
     fun resetConfig() = edit {
         listOf(
             K_LOW, K_INACTIVITY, K_SCHEDULE, K_LOCAL, K_DRIVE, K_FOLDER, K_DRIVE_CONNECTED,
@@ -182,7 +193,7 @@ class AppSettings(context: Context) {
 
     companion object {
         // Same file name as the first version of the app, so the remembered user survives the update.
-        private const val FILE = "stocktrack"
+        const val FILE = "stocktrack"
         private const val K_USER = "current_user_id"
         private const val K_LOW = "low_stock_threshold"
         private const val K_INACTIVITY = "inactivity_minutes"

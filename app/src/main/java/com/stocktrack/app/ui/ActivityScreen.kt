@@ -2,6 +2,9 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,8 +48,8 @@ import androidx.compose.ui.unit.dp
 import com.stocktrack.app.data.ActionType
 import com.stocktrack.app.data.LogEntry
 
-private enum class LogFilter(val label: String) {
-    All("All"), In("Check in"), Out("Check out"), Items("Item changes")
+private enum class LogFilter(@StringRes val label: Int) {
+    All(R.string.filter_all), In(R.string.filter_check_in), Out(R.string.filter_check_out), Items(R.string.filter_item_changes)
 }
 
 // Column weights shared by header and rows so everything lines up.
@@ -89,14 +92,14 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search item, user or note…") },
+                placeholder = { Text(stringResource(R.string.search_log)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             )
             LogFilter.entries.forEach { f ->
-                FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
+                FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(stringResource(f.label)) })
             }
             if (isAdmin) {
                 OutlinedButton(
@@ -106,7 +109,7 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
                 ) {
                     Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Clear log", maxLines = 1)
+                    Text(stringResource(R.string.clear_log), maxLines = 1)
                 }
             }
         }
@@ -118,17 +121,17 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
-                HeaderCell("Date / time", W_TIME)
-                HeaderCell("User", W_USER)
-                HeaderCell("Action", W_ACTION)
-                HeaderCell("Item", W_ITEM)
-                HeaderCell("Change", W_CHANGE, TextAlign.End)
-                HeaderCell("Qty after", W_AFTER, TextAlign.End)
-                HeaderCell("Note", W_NOTE)
+                HeaderCell(stringResource(R.string.col_date_time), W_TIME)
+                HeaderCell(stringResource(R.string.col_user), W_USER)
+                HeaderCell(stringResource(R.string.col_action), W_ACTION)
+                HeaderCell(stringResource(R.string.col_item), W_ITEM)
+                HeaderCell(stringResource(R.string.col_change), W_CHANGE, TextAlign.End)
+                HeaderCell(stringResource(R.string.col_qty_after), W_AFTER, TextAlign.End)
+                HeaderCell(stringResource(R.string.col_note), W_NOTE)
             }
             if (matches > shown.size) {
                 Text(
-                    "Showing the latest ${shown.size} of $matches entries.",
+                    stringResource(R.string.showing_latest, shown.size, matches),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
@@ -136,8 +139,8 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
             }
             if (filtered.isEmpty()) {
                 EmptyText(
-                    if (log.isEmpty()) "No activity yet. Check items in or out and it will show up here."
-                    else "No entries match.",
+                    if (log.isEmpty()) stringResource(R.string.no_activity_long)
+                    else stringResource(R.string.no_entries_match),
                     Modifier.fillMaxWidth()
                 )
             } else {
@@ -171,12 +174,10 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Clear the log?") },
+            title = { Text(stringResource(R.string.clear_log_title)) },
             text = {
                 Text(
-                    "Are you sure you want to clear the log? All ${log.size} entries are deleted and cannot be " +
-                        "brought back, except from a backup. Stock quantities do not change, but Monthly " +
-                        "Reports lose the check ins and check outs that were in the log."
+                    stringResource(R.string.clear_log_text, log.size)
                 )
             },
             confirmButton = {
@@ -186,9 +187,9 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
                         confirmClear = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Clear log") }
+                ) { Text(stringResource(R.string.clear_log)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }

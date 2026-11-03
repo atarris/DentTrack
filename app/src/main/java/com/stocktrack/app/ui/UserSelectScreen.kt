@@ -1,5 +1,6 @@
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -132,7 +133,7 @@ private fun UserMenuGrid(users: List<User>, onAdminTrigger: () -> Unit, onPick: 
             DentTrackHeader(fullLogo * scale, onAdminTrigger)
             if (users.isEmpty()) {
                 Text(
-                    "No users yet. Hold the DentTrack title for 3 seconds to open the Admin menu, then add them under Users.",
+                    stringResource(R.string.no_users),
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -198,7 +199,7 @@ private fun DentTrackHeader(logoWidth: Dp, onAdminTrigger: () -> Unit) {
         ) {
             HorizontalDivider(Modifier.weight(1f), thickness = 2.dp, color = DentTrackColors.MintDark)
             Text(
-                "Who is using the app?",
+                stringResource(R.string.who_is_using),
                 style = MaterialTheme.typography.titleLarge,
                 color = DentTrackColors.TextSecondary,
                 modifier = Modifier.padding(horizontal = 20.dp)

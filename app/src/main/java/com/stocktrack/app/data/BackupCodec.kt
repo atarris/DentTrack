@@ -1,10 +1,12 @@
 package com.stocktrack.app.data
 
+import androidx.annotation.StringRes
+import com.stocktrack.app.R
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 /** Something is wrong with the file the Admin picked. The message is shown to the user. */
-class BackupException(message: String) : Exception(message)
+class BackupException(@StringRes val res: Int, vararg val args: Any) : Exception()
 
 class ParsedBackup(
     val items: List<Item>,
@@ -38,7 +40,7 @@ object BackupCodec {
         val sheets = try {
             XlsxReader.read(bytes)
         } catch (e: Exception) {
-            throw BackupException("this is not a valid Excel (.xlsx) file")
+            throw BackupException(R.string.err_not_xlsx)
         }
 
         fun norm(s: String) = s.replace('\u00A0', ' ').trim().lowercase()
@@ -51,13 +53,13 @@ object BackupCodec {
                 val head = rows.firstOrNull().orEmpty().map { norm(it) }
                 head.contains(norm(ReportFormat.H_ITEM)) && head.contains(norm(ReportFormat.H_QTY))
             }
-            ?: throw BackupException(notAReportMessage(sheets.keys))
+            ?: throw notAReport(sheets.keys)
         val logRows = sheet(ReportFormat.SHEET_LOG).orEmpty()
 
         // ---- items
         val stock = Table(stockRows)
         if (!stock.has(ReportFormat.H_ITEM) || !stock.has(ReportFormat.H_QTY)) {
-            throw BackupException("the Stock sheet needs the columns \"${ReportFormat.H_ITEM}\" and \"${ReportFormat.H_QTY}\"")
+            throw BackupException(R.string.err_stock_columns, ReportFormat.H_ITEM, ReportFormat.H_QTY)
         }
         val usedIds = HashSet<Long>()
         val items = stock.body.mapNotNull { r ->
@@ -71,7 +73,7 @@ object BackupCodec {
                 sku = stock.get(r, ReportFormat.H_SKU),
                 category = stock.get(r, ReportFormat.H_CATEGORY),
                 location = stock.get(r, ReportFormat.H_LOCATION),
-                unit = stock.get(r, ReportFormat.H_UNIT).ifBlank { "pcs" },
+                unit = stock.get(r, ReportFormat.H_UNIT).ifBlank { DEFAULT_UNIT },
                 quantity = toInt(stock.get(r, ReportFormat.H_QTY)).coerceAtLeast(0),
                 minQuantity = toInt(stock.get(r, ReportFormat.H_OWN_ALERT)).coerceAtLeast(0),
                 unitCost = stock.get(r, ReportFormat.H_COST).replace(',', '.').toDoubleOrNull() ?: 0.0,
@@ -112,16 +114,14 @@ object BackupCodec {
         return ParsedBackup(items, entries, users, categories)
     }
 
-    private fun notAReportMessage(found: Set<String>): String {
-        val list = found.joinToString(", ") { "\"${it.trim()}\"" }.ifEmpty { "none" }
-        val hint = when {
-            found.any { it.trim().equals("Overview", ignoreCase = true) } ->
-                " This looks like a Monthly Report, which cannot be restored. Pick a DentTrack backup or a Reports > Export to Excel file."
-            found.any { it.trim().equals("Implantai", ignoreCase = true) } ->
-                " This looks like a stock list. Use Import stock from CSV for it."
-            else -> " Pick a backup file made by DentTrack (DentTrack_Backup_....xlsx) or a Reports > Export to Excel file."
+    private fun notAReport(found: Set<String>): BackupException {
+        val list = found.joinToString(", ") { "\"${it.trim()}\"" }.ifEmpty { "—" }
+        val message = when {
+            found.any { it.trim().equals("Overview", ignoreCase = true) } -> R.string.err_report_monthly
+            found.any { it.trim().equals("Implantai", ignoreCase = true) } -> R.string.err_report_stocklist
+            else -> R.string.err_report_other
         }
-        return "no stock list was found in this file (sheets: $list).$hint"
+        return BackupException(message, list)
     }
 
     /**

@@ -2,6 +2,9 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
+import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -35,12 +38,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.stocktrack.app.StockViewModel
 import com.stocktrack.app.data.AppConfig
+import com.stocktrack.app.data.Language
 
 /**
  * Admin only. Three groups: "Admin & user settings" (Admin visibility, password, inactivity timeout),
@@ -55,18 +60,20 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        LanguageCard(vm, config)
+
         // ---- Admin & user settings: who can sign in and how
-        SectionTitle("Admin & user settings")
+        SectionTitle(stringResource(R.string.section_admin_users))
         AdminVisibilityCard(vm, config)
         PasswordCard(vm, config)
         TimeoutCard(vm, config)
 
         // ---- Stock management: how stock is judged
-        SectionTitle("Stock management")
+        SectionTitle(stringResource(R.string.section_stock))
         LowStockCard(vm, config)
 
         // ---- Reset and clear: the actions that undo things, kept apart at the bottom
-        SectionTitle("Reset and clear")
+        SectionTitle(stringResource(R.string.section_reset))
         ResetConfigCard(vm)
         ClearStockCard(vm)
         Spacer(Modifier.height(8.dp))
@@ -90,15 +97,14 @@ private fun LowStockCard(vm: StockViewModel, config: AppConfig) {
     val value = text.toIntOrNull()
 
     SettingsPanel(
-        title = "Low stock alert threshold",
-        description = "An item is flagged as low stock when its quantity is at or below this number of units. " +
-            "An item can have its own level instead (Items → Edit). Use 0 to switch the global alert off."
+        title = stringResource(R.string.low_threshold_title),
+        description = stringResource(R.string.low_threshold_text)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it.filter(Char::isDigit).take(6) },
-                label = { Text("Units") },
+                label = { Text(stringResource(R.string.units_label)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.widthIn(max = 200.dp)
@@ -106,7 +112,7 @@ private fun LowStockCard(vm: StockViewModel, config: AppConfig) {
             Button(
                 enabled = value != null && value != config.lowStockThreshold,
                 onClick = { if (value != null) vm.setLowStockThreshold(value) }
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         }
     }
 }
@@ -117,16 +123,15 @@ private fun TimeoutCard(vm: StockViewModel, config: AppConfig) {
     val value = text.toIntOrNull()
 
     SettingsPanel(
-        title = "Inactivity timeout",
-        description = "After this many minutes without any touch, the app goes back to the user selection " +
-            "screen. This also ends an Admin session. Use 0 to turn it off."
+        title = stringResource(R.string.timeout_title),
+        description = stringResource(R.string.timeout_text)
     ) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(0, 1, 2, 5, 10, 15, 30).forEach { minutes ->
                 FilterChip(
                     selected = value == minutes,
                     onClick = { text = minutes.toString() },
-                    label = { Text(if (minutes == 0) "Off" else "$minutes min", maxLines = 1, softWrap = false) }
+                    label = { Text(if (minutes == 0) stringResource(R.string.off) else stringResource(R.string.minutes_short, minutes), maxLines = 1, softWrap = false) }
                 )
             }
         }
@@ -134,7 +139,7 @@ private fun TimeoutCard(vm: StockViewModel, config: AppConfig) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it.filter(Char::isDigit).take(4) },
-                label = { Text("Minutes") },
+                label = { Text(stringResource(R.string.minutes_label)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.widthIn(max = 200.dp)
@@ -142,7 +147,7 @@ private fun TimeoutCard(vm: StockViewModel, config: AppConfig) {
             Button(
                 enabled = value != null && value != config.inactivityMinutes,
                 onClick = { if (value != null) vm.setInactivityMinutes(value) }
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         }
     }
 }
@@ -154,6 +159,7 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
     var repeat by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val hasPassword = config.adminPasswordSet
     val clearFields = {
         current = ""
@@ -163,13 +169,11 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
     }
 
     SettingsPanel(
-        title = "Admin password",
+        title = stringResource(R.string.password_title),
         description = if (hasPassword) {
-            "Change or remove the password used to open the Admin menu (hold the “DentTrack” title for 3 seconds). " +
-                "Any password is accepted; there are no complexity rules."
+            stringResource(R.string.password_text_set)
         } else {
-            "No password is set: anyone who holds the “DentTrack” title for 3 seconds gets into the Admin menu. " +
-                "Enter a password below to protect it."
+            stringResource(R.string.password_text_none)
         }
     ) {
         val fieldModifier = Modifier.widthIn(max = 360.dp).fillMaxWidth()
@@ -177,7 +181,7 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
             OutlinedTextField(
                 value = current,
                 onValueChange = { current = it; error = null },
-                label = { Text("Current password") },
+                label = { Text(stringResource(R.string.current_password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -187,7 +191,7 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
         OutlinedTextField(
             value = new,
             onValueChange = { new = it; error = null },
-            label = { Text("New password") },
+            label = { Text(stringResource(R.string.new_password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -196,7 +200,7 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
         OutlinedTextField(
             value = repeat,
             onValueChange = { repeat = it; error = null },
-            label = { Text("Repeat new password") },
+            label = { Text(stringResource(R.string.repeat_new_password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -208,23 +212,23 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
                 enabled = (current.isNotEmpty() || !hasPassword) && new.isNotEmpty(),
                 onClick = {
                     when {
-                        new != repeat -> error = "The new passwords are not the same"
+                        new != repeat -> error = context.getString(R.string.new_passwords_differ)
                         !hasPassword -> {
                             vm.setAdminPassword(new)
                             clearFields()
                         }
                         else -> vm.changeAdminPassword(current, new) { ok ->
-                            if (ok) clearFields() else error = "The current password is wrong"
+                            if (ok) clearFields() else error = context.getString(R.string.current_password_wrong)
                         }
                     }
                 }
-            ) { Text(if (hasPassword) "Change password" else "Set password") }
+            ) { Text(if (hasPassword) stringResource(R.string.change_password) else stringResource(R.string.set_password)) }
             if (hasPassword) {
                 OutlinedButton(
                     enabled = current.isNotEmpty(),
                     onClick = { confirmRemove = true },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
-                ) { Text("Remove password") }
+                ) { Text(stringResource(R.string.remove_password)) }
             }
         }
     }
@@ -233,11 +237,10 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text("Remove the Admin password?") },
+            title = { Text(stringResource(R.string.remove_password_title)) },
             text = {
                 Text(
-                    "Anyone who holds the “DentTrack” title for 3 seconds will get into the Admin menu without " +
-                        "a password. They could change items, users and settings, or clear the log."
+                    stringResource(R.string.remove_password_text)
                 )
             },
             confirmButton = {
@@ -245,13 +248,13 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
                     onClick = {
                         confirmRemove = false
                         vm.removeAdminPassword(current) { ok ->
-                            if (ok) clearFields() else error = "The current password is wrong"
+                            if (ok) clearFields() else error = context.getString(R.string.current_password_wrong)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Remove password") }
+                ) { Text(stringResource(R.string.remove_password)) }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -263,9 +266,8 @@ private fun ClearStockCard(vm: StockViewModel) {
     var alsoLog by remember { mutableStateOf(false) }
 
     SettingsPanel(
-        title = "Clear stock database",
-        description = "Deletes every item and category, to start again or before a fresh import. Users, settings " +
-            "and the Admin password are kept. Make a backup first: this cannot be undone."
+        title = stringResource(R.string.clear_stock_title),
+        description = stringResource(R.string.clear_stock_text)
     ) {
         OutlinedButton(
             onClick = {
@@ -274,25 +276,25 @@ private fun ClearStockCard(vm: StockViewModel) {
                 open = true
             },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
-        ) { Text("Clear stock database") }
+        ) { Text(stringResource(R.string.clear_stock_title)) }
     }
 
     if (open) {
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { open = false },
-            title = { Text("Clear the stock database?") },
+            title = { Text(stringResource(R.string.clear_stock_confirm_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("All items, their quantities and all categories will be deleted. The only way back is restoring a backup.")
+                    Text(stringResource(R.string.clear_stock_confirm_text))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = alsoLog, onCheckedChange = { alsoLog = it })
-                        Text("Also clear the activity log")
+                        Text(stringResource(R.string.also_clear_log))
                     }
                     OutlinedTextField(
                         value = typed,
                         onValueChange = { typed = it },
-                        label = { Text("Type DELETE to confirm") },
+                        label = { Text(stringResource(R.string.type_delete)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -306,9 +308,9 @@ private fun ClearStockCard(vm: StockViewModel) {
                         open = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Clear database") }
+                ) { Text(stringResource(R.string.clear_database)) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -318,26 +320,23 @@ private fun ResetConfigCard(vm: StockViewModel) {
     var confirm by remember { mutableStateOf(false) }
 
     SettingsPanel(
-        title = "Reset app configuration",
-        description = "Puts the settings on this screen and on the Backup tab back to their defaults. Stock, " +
-            "the activity log, users, categories and the Admin password are kept."
+        title = stringResource(R.string.reset_title),
+        description = stringResource(R.string.reset_text)
     ) {
         OutlinedButton(
             onClick = { confirm = true },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
-        ) { Text("Reset app configuration") }
+        ) { Text(stringResource(R.string.reset_title)) }
     }
 
     if (confirm) {
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Reset app configuration?") },
+            title = { Text(stringResource(R.string.reset_confirm_title)) },
             text = {
                 Text(
-                    "Low stock threshold, inactivity timeout and Hide Admin user go back to their defaults. " +
-                        "Automatic backups and the monthly Drive upload are turned off, and the chosen backup " +
-                        "folder and Google Drive connection are forgotten."
+                    stringResource(R.string.reset_confirm_text)
                 )
             },
             confirmButton = {
@@ -347,9 +346,9 @@ private fun ResetConfigCard(vm: StockViewModel) {
                         confirm = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Reset") }
+                ) { Text(stringResource(R.string.reset)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -357,17 +356,40 @@ private fun ResetConfigCard(vm: StockViewModel) {
 @Composable
 private fun AdminVisibilityCard(vm: StockViewModel, config: AppConfig) {
     SettingsPanel(
-        title = "Hide Admin user",
-        description = "On: the Admin is not listed on the user selection screen. Open the Admin menu by " +
-            "holding the “DentTrack” title for 3 seconds. Off: an “Admin” card is shown with the other " +
-            "users (the password is still asked)."
+        title = stringResource(R.string.hide_admin_title),
+        description = stringResource(R.string.hide_admin_text)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Switch(checked = config.hideAdmin, onCheckedChange = { vm.setHideAdmin(it) })
             Text(
-                if (config.hideAdmin) "Admin is hidden" else "Admin is shown on the user selection screen",
+                if (config.hideAdmin) stringResource(R.string.admin_hidden) else stringResource(R.string.admin_shown),
                 fontWeight = FontWeight.SemiBold
             )
+        }
+    }
+}
+
+@Composable
+private fun LanguageCard(vm: StockViewModel, config: AppConfig) {
+    val context = LocalContext.current
+    SettingsPanel(
+        title = stringResource(R.string.language_title),
+        description = stringResource(R.string.language_text)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Each language is named in its own language, so it can always be found.
+            listOf(Language.ENGLISH to "English", Language.LITHUANIAN to "Lietuvių").forEach { (code, label) ->
+                FilterChip(
+                    selected = config.language == code,
+                    onClick = {
+                        if (config.language != code) {
+                            vm.setLanguage(code)
+                            (context as? Activity)?.recreate()
+                        }
+                    },
+                    label = { Text(label, maxLines = 1, softWrap = false) }
+                )
+            }
         }
     }
 }

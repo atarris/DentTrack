@@ -2,8 +2,39 @@
 
 A BoxHero-style stock app for dental clinics. Kotlin, Jetpack Compose (Material 3), local Room database, works offline.
 
+## Features for each user
+
+### Everyone (regular users)
+
+No password: tap your name on the start screen to open your menu.
+
+| Menu | What you can do |
+|---|---|
+| **Dashboard** | See the number of items, units in stock, low stock alerts and stock value. Tap a low stock alert to open the item. Tap a Recent activity entry to open that item for check out. |
+| **Items** | Search items and filter by low stock or out of stock. See an item's details and history. **Check in** and **Check out** stock, with a note. |
+| **Activity** | Read the activity log (latest 100 entries). Search it and filter by check in, check out or item changes. |
+| **Reports** | See stock by category and which items need restocking. Export the Storage report to Excel. |
+| **Info** | See the app version, build number, build date and who built it. |
+
+The box icon at the top left, or *Switch user*, goes back to the start screen.
+
+### Admin (everything above, plus)
+
+Open with a press and hold of 3 seconds on the **DentTrack** title, then enter the Admin password.
+
+| Menu | What the Admin can do |
+|---|---|
+| **Items** | Add, edit and remove items. Add and delete categories. |
+| **Activity** | Clear the log. |
+| **Reports** | Export the Monthly Report instead of the Storage report (charts, Top 10 items, month and year review, a sheet per category), or save it to Google Drive, on request or on the 1st of each month. |
+| **Users** | Add and remove users. |
+| **Settings** | Language (English or Lietuvių). Show or hide the Admin on the start screen. Change, remove or set the Admin password. Inactivity timeout. Low stock threshold. Reset app configuration. Clear stock database. |
+| **Backup** | Automatic backup schedule. Backup to a local folder and/or Google Drive. Back up now. Import stock from CSV. Restore from a backup file. |
+
 ## Using the app
 
+- **Language (Settings, Admin):** the screens can be English or Lithuanian, whatever language the tablet uses. In Lithuanian, Check in and Check out are *Pridėti* and *Paimti*, the report titles are *Sandėlio ataskaita* and *Mėnesinė ataskaita*, and the default unit `pcs` shows as *vnt*. Excel reports, backup files and their names always stay in English (the unit is saved as `pcs`), so backups restore in either language. Entries already in the activity log keep the wording they were saved with. Texts are in `res/values/strings.xml` (English) and `res/values-lt/strings.xml` (Lithuanian).
+- **Info:** shows the version, build number, build date and author. The build date is set automatically when the app is built.
 - **Users:** no sign-in. Tap your name on the start screen to open your menu. Tapping the box icon at the top left of the main screen goes back to the start screen. The Admin adds and removes users on the **Users** tab.
 - **Dashboard → Recent activity:** tapping an entry opens that item with the Check out window. An item with no stock opens without the window, and entries of removed items do nothing.
 - **Items, check in / out, activity log, low stock alerts, Excel report:** as before. Regular users can view items and check stock in and out. **Only the Admin can add, edit or remove items.**
@@ -60,9 +91,10 @@ app/src/main/java/com/stocktrack/app/
   data/Csv.kt              CSV reader
   data/StockImport.kt      import items from a CSV stock list
   data/DriveBackup.kt      Google Drive upload
+  data/Language.kt         the language chosen in Settings
   ui/MarbleBackground.kt  animated start-screen background
   ui/                      screens: UserSelect, Main, Dashboard, Items, Activity, Reports,
-                           Users, Settings, Backup, Admin sign-in dialog, shared theme/components
+                           Users, Settings, Backup, Info, Admin sign-in dialog, shared theme/components
 ```
 
 The Kotlin package is still `com.stocktrack.app` (renaming a package is an Android Studio refactor and would reset existing app data); everything visible to people says DentTrack.

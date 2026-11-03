@@ -2,6 +2,8 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -80,8 +82,9 @@ fun ReportsScreen(
         if (uri != null) vm.exportReport(uri)
     }
 
-    val categories = remember(stock) {
-        stock.groupBy { it.category.ifBlank { "Uncategorized" } }
+    val uncategorized = stringResource(R.string.uncategorized)
+    val categories = remember(stock, uncategorized) {
+        stock.groupBy { it.category.ifBlank { uncategorized } }
             .map { (name, list) ->
                 CategoryRow(name, list.size, list.sumOf { it.quantity.toLong() }, list.sumOf { it.stockValue() })
             }
@@ -116,15 +119,15 @@ fun ReportsScreen(
         ) {
             // ---------------------------------------------------- category summary
             Panel(Modifier.weight(1f).fillMaxHeight()) {
-                SectionTitle("Stock by category")
+                SectionTitle(stringResource(R.string.stock_by_category))
                 if (categories.isEmpty()) {
-                    EmptyText("No items yet.", Modifier.fillMaxWidth())
+                    EmptyText(stringResource(R.string.no_items_short),Modifier.fillMaxWidth())
                 } else {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
-                        Text("Category", Modifier.weight(2f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Items", Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Units", Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Value", Modifier.weight(1.3f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.col_category), Modifier.weight(2f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.col_items), Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.col_units), Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.col_value), Modifier.weight(1.3f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     LazyColumn(Modifier.weight(1f)) {
@@ -149,9 +152,9 @@ fun ReportsScreen(
 
             // ------------------------------------------------------- reorder list
             Panel(Modifier.weight(1f).fillMaxHeight()) {
-                SectionTitle("Needs restocking (${lowItems.size})")
+                SectionTitle(stringResource(R.string.needs_restocking, lowItems.size))
                 if (lowItems.isEmpty()) {
-                    EmptyText("Nothing is below its alert level.", Modifier.fillMaxWidth())
+                    EmptyText(stringResource(R.string.nothing_below_alert),Modifier.fillMaxWidth())
                 } else {
                     LazyColumn(Modifier.weight(1f)) {
                         items(lowItems, key = { it.id }) { item ->
@@ -168,13 +171,13 @@ fun ReportsScreen(
                                         maxLines = 1, overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        "Alert level ${item.alertLevel(threshold)} ${item.unit}",
+                                        stringResource(R.string.alert_level_value, item.alertLevel(threshold), unitLabel(item.unit)),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Pill(
-                                    if (item.isOut()) "Out of stock" else "${item.quantity} ${item.unit} left",
+                                    if (item.isOut()) stringResource(R.string.out_of_stock) else stringResource(R.string.items_left, item.quantity, unitLabel(item.unit)),
                                     if (item.isOut()) Red else Orange
                                 )
                             }
@@ -192,19 +195,17 @@ fun ReportsScreen(
 private fun StorageReportCard(modifier: Modifier, onExport: () -> Unit) {
     Panel(modifier) {
         Column(Modifier.padding(24.dp)) {
-            Text("Storage report", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.storage_report), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Export the current stock to an Excel file (.xlsx). It contains five sheets: " +
-                    "Summary, Stock (every item with quantity, status and value), " +
-                    "Low stock, the full Activity log and Users. The same file is used for backups.",
+                stringResource(R.string.storage_report_text),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(16.dp))
             Button(onClick = onExport) {
                 Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Export to Excel")
+                Text(stringResource(R.string.export_to_excel))
             }
         }
     }
@@ -224,25 +225,24 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
 
     val exportPart: @Composable (Modifier) -> Unit = { partModifier ->
         Column(partModifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Monthly report", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.monthly_report), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
-                "One Excel file for a whole year. It opens with charts and the Top 10 items for the month and " +
-                    "the year, then has a sheet for every category with check in, check out and items left per month.",
+                stringResource(R.string.monthly_report_text),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalIconButton(onClick = { year = (year - 1).coerceAtLeast(2000) }) {
-                    Icon(Icons.Default.Remove, contentDescription = "Previous year")
+                    Icon(Icons.Default.Remove, contentDescription = stringResource(R.string.previous_year))
                 }
                 Text("$year", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 FilledTonalIconButton(onClick = { year = (year + 1).coerceAtMost(2100) }) {
-                    Icon(Icons.Default.Add, contentDescription = "Next year")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.next_year))
                 }
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = { exportLauncher.launch("DentTrack_MonthlyReport_$year.xlsx") }) {
                     Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Export", maxLines = 1)
+                    Text(stringResource(R.string.export), maxLines = 1)
                 }
             }
         }
@@ -251,10 +251,9 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
         Column(partModifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Save to Google Drive on the 1st of every month", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.monthly_drive_title),fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Goes to the folder “DentTrack Monthly Reports”. Needs Google Drive connected on the " +
-                            "Backup tab. Reports on the year up to the month that just ended.",
+                        stringResource(R.string.monthly_drive_text),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -264,7 +263,7 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
             }
             if (config.lastMonthlyAt > 0L) {
                 Text(
-                    "Last upload: ${formatTime(config.lastMonthlyAt)}\n${config.lastMonthlyStatus}",
+                    stringResource(R.string.last_upload, formatTime(config.lastMonthlyAt), config.lastMonthlyStatus),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
@@ -274,7 +273,7 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
             OutlinedButton(onClick = { vm.uploadMonthlyReportNow(year) }, enabled = config.driveConnected) {
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Save $year to Drive now", maxLines = 1)
+                Text(stringResource(R.string.save_year_to_drive, year), maxLines = 1)
             }
         }
     }

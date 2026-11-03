@@ -1,5 +1,7 @@
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stocktrack.app.data.ActionType
+import com.stocktrack.app.data.DEFAULT_UNIT
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -177,7 +180,7 @@ fun CompactDialog(
     confirmEnabled: Boolean = true,
     confirmColor: Color = MaterialTheme.colorScheme.primary,
     /** Text of the left-hand button; null hides it (for windows with a single "Done"). */
-    dismissLabel: String? = "Cancel",
+    dismissLabel: String? = stringResource(R.string.cancel),
     content: @Composable ColumnScope.() -> Unit
 ) {
     KeepAwakeWhileShown()
@@ -288,12 +291,18 @@ fun EmptyText(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** The unit as the screens show it: the default unit follows the chosen language, typed units stay as typed. */
+@Composable
+fun unitLabel(unit: String): String =
+    if (unit.equals(DEFAULT_UNIT, ignoreCase = true)) stringResource(R.string.unit_pcs) else unit
+
+@Composable
 fun actionLabel(type: String): String = when (type) {
-    ActionType.CHECK_IN -> "Check in"
-    ActionType.CHECK_OUT -> "Check out"
-    ActionType.ITEM_ADDED -> "Item added"
-    ActionType.ITEM_EDITED -> "Item edited"
-    ActionType.ITEM_REMOVED -> "Item removed"
+    ActionType.CHECK_IN -> stringResource(R.string.check_in)
+    ActionType.CHECK_OUT -> stringResource(R.string.check_out)
+    ActionType.ITEM_ADDED -> stringResource(R.string.action_item_added)
+    ActionType.ITEM_EDITED -> stringResource(R.string.action_item_edited)
+    ActionType.ITEM_REMOVED -> stringResource(R.string.action_item_removed)
     else -> type
 }
 

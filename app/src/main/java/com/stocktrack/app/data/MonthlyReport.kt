@@ -2,6 +2,7 @@ package com.stocktrack.app.data
 
 import android.content.Context
 import androidx.work.Constraints
+import com.stocktrack.app.R
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -456,9 +457,10 @@ object MonthlyReportRunner {
     /** Builds the report for [year] and uploads it to Google Drive. Also used by "Save to Drive now". */
     suspend fun uploadReport(context: Context, year: Int, now: Long, focusMonth: Int? = null): Result {
         val app = context.applicationContext
+        val text = Language.context(app)
         return try {
             if (!AppSettings(app).state.value.driveConnected) {
-                return Result(false, "Google Drive is not connected (Backup tab)")
+                return Result(false, text.getString(R.string.run_drive_not_connected))
             }
             val dao = AppDatabase.get(app).dao()
             val bytes = MonthlyReport.build(dao.itemsOnce(), dao.logOnce(), year, now, focusMonth)
@@ -467,14 +469,14 @@ object MonthlyReportRunner {
                 is DriveBackup.Auth.Token ->
                     DriveBackup.upload(auth.value, name, bytes, DriveBackup.MONTHLY_FOLDER_NAME)
                 is DriveBackup.Auth.NeedsConsent ->
-                    throw IOException("permission needed. Open Backup and tap Connect")
+                    throw IOException(text.getString(R.string.run_permission_needed))
                 is DriveBackup.Auth.Failed -> throw IOException(auth.reason)
             }
-            Result(true, "Uploaded $name to Google Drive")
+            Result(true, text.getString(R.string.run_uploaded_named, name))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Result(false, "Failed: ${e.message ?: e.javaClass.simpleName}")
+            Result(false, text.getString(R.string.run_failed, e.message ?: e.javaClass.simpleName))
         }
     }
 }

@@ -6,6 +6,7 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
+import com.stocktrack.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -52,12 +53,12 @@ object DriveBackup {
             when {
                 result.hasResolution() && pending != null -> Auth.NeedsConsent(pending)
                 token != null -> Auth.Token(token)
-                else -> Auth.Failed("Google returned no access token")
+                else -> Auth.Failed(Language.context(context).getString(R.string.drive_no_token))
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Auth.Failed(e.message ?: "Google sign-in failed")
+            Auth.Failed(e.message ?: Language.context(context).getString(R.string.drive_sign_in_failed))
         }
     }
 

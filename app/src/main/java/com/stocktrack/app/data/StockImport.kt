@@ -1,5 +1,6 @@
 package com.stocktrack.app.data
 
+import com.stocktrack.app.R
 import kotlin.math.roundToInt
 
 /**
@@ -41,7 +42,7 @@ object StockImporter {
 
     fun parse(bytes: ByteArray, existingKeys: Set<String>, existingCategories: Set<String>): Preview {
         val table = Csv.parse(Csv.decode(bytes))
-        if (table.isEmpty()) throw BackupException("the file is empty")
+        if (table.isEmpty()) throw BackupException(R.string.err_csv_empty)
 
         val rows = ArrayList<Row>()
         val negative = ArrayList<Row>()
@@ -76,7 +77,7 @@ object StockImporter {
         }
 
         if (rows.isEmpty() && negative.isEmpty() && existing == 0) {
-            throw BackupException("no items found (expected: item name in column A, category in column B, quantity in column C)")
+            throw BackupException(R.string.err_csv_no_items)
         }
         return Preview(rows, negative, unreadable, duplicates, existing, newCats.values.toList())
     }
@@ -97,7 +98,7 @@ object StockImporter {
             if (!existing.add(key(row.category, row.name))) continue
             val qty = row.quantity.coerceAtLeast(0)
             val id = dao.insertItem(
-                Item(name = row.name, category = row.category, unit = "pcs", quantity = qty, createdAt = now)
+                Item(name = row.name, category = row.category, unit = DEFAULT_UNIT, quantity = qty, createdAt = now)
             )
             dao.insertLog(
                 LogEntry(

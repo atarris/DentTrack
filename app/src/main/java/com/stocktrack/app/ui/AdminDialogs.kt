@@ -1,5 +1,7 @@
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -62,6 +65,7 @@ fun AdminLoginDialog(
     signIn: (password: String, createNew: Boolean, onResult: (Boolean) -> Unit) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val creating = !passwordSet
     var password by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
@@ -70,34 +74,34 @@ fun AdminLoginDialog(
     fun submit() {
         if (creating) {
             if (password.isEmpty()) {
-                error = "Enter a password"
+                error = context.getString(R.string.enter_password)
                 return
             }
             if (password != repeat) {
-                error = "The two passwords are not the same"
+                error = context.getString(R.string.passwords_differ)
                 return
             }
         }
         signIn(password, creating) { ok ->
-            if (ok) onDismiss() else error = if (creating) "Could not create the password" else "Wrong password"
+            if (ok) onDismiss() else error = context.getString(if (creating) R.string.could_not_create_password else R.string.wrong_password)
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (creating) "Create admin password" else "Admin sign-in") },
+        title = { Text(if (creating) stringResource(R.string.create_admin_password) else stringResource(R.string.admin_sign_in)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (creating) {
                     Text(
-                        "No admin password has been set yet. Choose one now. You can change it later in Settings.",
+                        stringResource(R.string.no_admin_password_text),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; error = null },
-                    label = { Text(if (creating) "New password" else "Password") },
+                    label = { Text(if (creating) stringResource(R.string.new_password) else stringResource(R.string.password)) },
                     singleLine = true,
                     isError = error != null,
                     visualTransformation = PasswordVisualTransformation(),
@@ -108,7 +112,7 @@ fun AdminLoginDialog(
                     OutlinedTextField(
                         value = repeat,
                         onValueChange = { repeat = it; error = null },
-                        label = { Text("Repeat password") },
+                        label = { Text(stringResource(R.string.repeat_password)) },
                         singleLine = true,
                         isError = error != null,
                         visualTransformation = PasswordVisualTransformation(),
@@ -120,8 +124,8 @@ fun AdminLoginDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { submit() }) { Text(if (creating) "Create and sign in" else "Sign in") }
+            Button(onClick = { submit() }) { Text(if (creating) stringResource(R.string.create_and_sign_in) else stringResource(R.string.sign_in)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

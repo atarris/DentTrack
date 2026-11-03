@@ -2,6 +2,8 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +54,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,6 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -71,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stocktrack.app.StockViewModel
 import com.stocktrack.app.data.ActionType
+import com.stocktrack.app.data.DEFAULT_UNIT
 import com.stocktrack.app.data.Item
 import com.stocktrack.app.data.LogEntry
 import com.stocktrack.app.data.alertLevel
@@ -78,8 +83,8 @@ import com.stocktrack.app.data.isLow
 import com.stocktrack.app.data.isOut
 import com.stocktrack.app.data.stockValue
 
-private enum class StockFilter(val label: String) {
-    All("All"), Low("Low stock"), Out("Out of stock")
+private enum class StockFilter(@StringRes val label: Int) {
+    All(R.string.filter_all), Low(R.string.stock_filter_low), Out(R.string.out_of_stock)
 }
 
 /** The activity lists in the app show at most this many entries (the backup file keeps 999). */
@@ -157,8 +162,8 @@ fun ItemsScreen(
             if (selected == null) {
                 Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        if (isAdmin) "Select an item to check it in or out,\nor tap “Add” to create a new one."
-                        else "Select an item to check it in or out.",
+                        if (isAdmin) stringResource(R.string.select_item_admin)
+                        else stringResource(R.string.select_item_user),
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -246,12 +251,10 @@ fun ItemsScreen(
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Remove “${selected.name}”?") },
+            title = { Text(stringResource(R.string.remove_item_title, selected.name)) },
             text = {
                 Text(
-                    "The item is removed from stock" +
-                        (if (selected.quantity > 0) " together with its ${selected.quantity} ${selected.unit}" else "") +
-                        ". This is recorded in the activity log."
+                    if (selected.quantity > 0) stringResource(R.string.remove_item_text_qty, selected.quantity, unitLabel(selected.unit)) else stringResource(R.string.remove_item_text)
                 )
             },
             confirmButton = {
@@ -261,9 +264,9 @@ fun ItemsScreen(
                         confirmDelete = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Remove") }
+                ) { Text(stringResource(R.string.remove)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -295,7 +298,7 @@ private fun ItemListPanel(
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQuery,
-                    placeholder = { Text("Search name, SKU, category…", maxLines = 1) },
+                    placeholder = { Text(stringResource(R.string.search_items), maxLines = 1) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -306,7 +309,7 @@ private fun ItemListPanel(
                     Button(onClick = onAdd) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        Text("Add")
+                        Text(stringResource(R.string.new_item))
                     }
                 }
             }
@@ -315,7 +318,7 @@ private fun ItemListPanel(
                 OutlinedButton(onClick = onCategories) {
                     Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
-                    Text("Categories", maxLines = 1, softWrap = false)
+                    Text(stringResource(R.string.categories), maxLines = 1, softWrap = false)
                 }
             }
             // FlowRow: if the chips do not fit next to each other they wrap onto a second line
@@ -335,7 +338,7 @@ private fun ItemListPanel(
                         onClick = { onFilter(f) },
                         label = {
                             Text(
-                                "${f.label} ($count)",
+                                stringResource(f.label) + " ($count)",
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier.padding(vertical = 4.dp)
@@ -350,9 +353,9 @@ private fun ItemListPanel(
         if (shown.isEmpty()) {
             EmptyText(
                 when {
-                    allItems.isEmpty() && isAdmin -> "No items yet. Tap “Add” to create your first item."
-                    allItems.isEmpty() -> "No items yet. The Admin can add them."
-                    else -> "No items match."
+                    allItems.isEmpty() && isAdmin -> stringResource(R.string.no_items_admin)
+                    allItems.isEmpty() -> stringResource(R.string.no_items_user)
+                    else -> stringResource(R.string.no_items_match)
                 },
                 Modifier.fillMaxWidth()
             )
@@ -393,11 +396,11 @@ private fun ItemRow(item: Item, threshold: Int, selected: Boolean, onClick: () -
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
-        if (item.isOut()) Pill("Out", Red) else if (item.isLow(threshold)) Pill("Low", Orange)
+        if (item.isOut()) Pill(stringResource(R.string.pill_out), Red) else if (item.isLow(threshold)) Pill(stringResource(R.string.pill_low), Orange)
         Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text("${item.quantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = qtyColor)
-            Text(item.unit, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(unitLabel(item.unit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -425,7 +428,7 @@ private fun ItemDetail(
             TextButton(onClick = onBack, modifier = Modifier.padding(bottom = 4.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("All items")
+                Text(stringResource(R.string.all_items))
             }
         }
         Row(verticalAlignment = Alignment.Top) {
@@ -438,9 +441,9 @@ private fun ItemDetail(
             }
             Spacer(Modifier.width(8.dp))
             when {
-                item.isOut() -> Pill("Out of stock", Red)
-                item.isLow(threshold) -> Pill("Low stock", Orange)
-                else -> Pill("In stock", Green)
+                item.isOut() -> Pill(stringResource(R.string.out_of_stock), Red)
+                item.isLow(threshold) -> Pill(stringResource(R.string.stock_filter_low), Orange)
+                else -> Pill(stringResource(R.string.in_stock), Green)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -451,7 +454,7 @@ private fun ItemDetail(
         ) {
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("In stock", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.in_stock), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             "${item.quantity}", style = MaterialTheme.typography.displaySmall,
@@ -459,20 +462,20 @@ private fun ItemDetail(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            item.unit, style = MaterialTheme.typography.titleMedium,
+                            unitLabel(item.unit), style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Low stock alert level", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.low_alert_level), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        if (level > 0) "$level ${item.unit}" else "Off",
+                        if (level > 0) "$level ${unitLabel(item.unit)}" else stringResource(R.string.off),
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold
                     )
                     if (item.minQuantity <= 0 && level > 0) {
                         Text(
-                            "(global setting)", style = MaterialTheme.typography.bodySmall,
+                            stringResource(R.string.global_setting), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -489,7 +492,7 @@ private fun ItemDetail(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Check in", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text(stringResource(R.string.check_in), style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
             Button(
                 onClick = onCheckOut,
@@ -499,19 +502,19 @@ private fun ItemDetail(
             ) {
                 Icon(Icons.Default.Remove, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Check out", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text(stringResource(R.string.check_out), style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
         }
         Spacer(Modifier.height(16.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            InfoField("Location", item.location.ifBlank { "—" }, Modifier.weight(1f))
-            InfoField("Unit cost", formatMoney(item.unitCost), Modifier.weight(1f))
-            InfoField("Stock value", formatMoney(item.stockValue()), Modifier.weight(1f))
+            InfoField(stringResource(R.string.location),item.location.ifBlank { "—" }, Modifier.weight(1f))
+            InfoField(stringResource(R.string.unit_cost),formatMoney(item.unitCost), Modifier.weight(1f))
+            InfoField(stringResource(R.string.stock_value),formatMoney(item.stockValue()), Modifier.weight(1f))
         }
         if (item.note.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
-            InfoField("Note", item.note, Modifier.fillMaxWidth())
+            InfoField(stringResource(R.string.note),item.note, Modifier.fillMaxWidth())
         }
 
         // Changing item details or removing an item is for the Admin only.
@@ -521,23 +524,23 @@ private fun ItemDetail(
                 OutlinedButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Edit")
+                    Text(stringResource(R.string.edit))
                 }
                 OutlinedButton(onClick = onDelete, colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Remove item")
+                    Text(stringResource(R.string.remove_item))
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(
-            "History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+            stringResource(R.string.history), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
         )
         if (history.isEmpty()) {
-            EmptyText("No activity for this item yet.", Modifier.fillMaxWidth())
+            EmptyText(stringResource(R.string.no_item_activity),Modifier.fillMaxWidth())
         } else {
             LazyColumn(Modifier.weight(1f)) {
                 items(history, key = { it.id }) { h ->
@@ -610,7 +613,9 @@ private fun ItemEditorDialog(
     var sku by remember { mutableStateOf(initial?.sku ?: "") }
     var category by remember { mutableStateOf(initial?.category ?: "") }
     var location by remember { mutableStateOf(initial?.location ?: "") }
-    var unit by remember { mutableStateOf(initial?.unit ?: "pcs") }
+    val defaultUnit = stringResource(R.string.unit_pcs)
+    val initialUnit = unitLabel(initial?.unit ?: DEFAULT_UNIT)
+    var unit by remember { mutableStateOf(initialUnit) }
     var qty by remember { mutableStateOf("0") }
     var min by remember { mutableStateOf((initial?.minQuantity ?: 0).toString()) }
     var cost by remember {
@@ -635,7 +640,7 @@ private fun ItemEditorDialog(
                 sku = sku.trim(),
                 category = category.trim(),
                 location = location.trim(),
-                unit = unit.trim().ifBlank { "pcs" },
+                unit = unit.trim().let { if (it.isBlank() || it.equals(defaultUnit, ignoreCase = true)) DEFAULT_UNIT else it },
                 quantity = if (initial == null) (qty.toIntOrNull() ?: 0) else initial.quantity,
                 minQuantity = min.toIntOrNull() ?: 0,
                 unitCost = cost.replace(',', '.').toDoubleOrNull() ?: 0.0,
@@ -647,46 +652,46 @@ private fun ItemEditorDialog(
 
     // Save / Cancel are in the title bar at the top, so the keyboard cannot cover them.
     CompactDialog(
-        title = if (initial == null) "Add item" else "Edit item",
-        confirmLabel = "Save",
+        title = if (initial == null) stringResource(R.string.add_item) else stringResource(R.string.edit_item),
+        confirmLabel = stringResource(R.string.save),
         onConfirm = { save() },
         onDismiss = onDismiss
     ) {
         OutlinedTextField(
             value = name,
             onValueChange = { name = it; nameError = false },
-            label = { Text("Item name *") },
+            label = { Text(stringResource(R.string.item_name_required)) },
             isError = nameError,
-            supportingText = { if (nameError) Text("Name is required") },
+            supportingText = { if (nameError) Text(stringResource(R.string.name_required)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth()
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Field("SKU / Barcode", sku, { sku = it }, Modifier.weight(1f), capitalization = KeyboardCapitalization.None)
+            Field(stringResource(R.string.sku_barcode),sku, { sku = it }, Modifier.weight(1f), capitalization = KeyboardCapitalization.None)
             CategoryDropdown(category, categories, { category = it }, Modifier.weight(1f))
-            Field("Location", location, { location = it }, Modifier.weight(1f))
+            Field(stringResource(R.string.location),location, { location = it }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Field("Unit", unit, { unit = it }, Modifier.weight(1f), capitalization = KeyboardCapitalization.None)
+            Field(stringResource(R.string.unit),unit, { unit = it }, Modifier.weight(1f), capitalization = KeyboardCapitalization.None)
             if (initial == null) {
                 Field(
-                    "Initial qty", qty, { qty = it.filter(Char::isDigit).take(7) },
+                    stringResource(R.string.initial_qty), qty, { qty = it.filter(Char::isDigit).take(7) },
                     Modifier.weight(1f), KeyboardType.Number
                 )
             }
             Field(
-                "Alert level", min, { min = it.filter(Char::isDigit).take(7) },
+                stringResource(R.string.alert_level), min, { min = it.filter(Char::isDigit).take(7) },
                 Modifier.weight(1f), KeyboardType.Number
             )
             Field(
-                "Unit cost", cost, { cost = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(12) },
+                stringResource(R.string.unit_cost), cost, { cost = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(12) },
                 Modifier.weight(1f), KeyboardType.Decimal
             )
         }
-        Field("Note", note, { note = it }, Modifier.fillMaxWidth())
+        Field(stringResource(R.string.note),note, { note = it }, Modifier.fillMaxWidth())
         Text(
-            "Alert level 0 = use the global level ($threshold).",
+            stringResource(R.string.alert_level_hint, threshold),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -712,15 +717,15 @@ private fun CategoryDropdown(
             value = selected,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Category", maxLines = 1) },
-            placeholder = { Text("None") },
+            label = { Text(stringResource(R.string.category), maxLines = 1) },
+            placeholder = { Text(stringResource(R.string.none)) },
             singleLine = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("— No category —", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                text = { Text(stringResource(R.string.no_category_option), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = { onSelect(""); open = false }
             )
             options.forEach { option ->
@@ -755,8 +760,8 @@ private fun CategoryManagerDialog(
     }
 
     CompactDialog(
-        title = "Category management",
-        confirmLabel = "Done",
+        title = stringResource(R.string.category_management),
+        confirmLabel = stringResource(R.string.done),
         onConfirm = onDismiss,
         onDismiss = onDismiss,
         dismissLabel = null
@@ -765,16 +770,16 @@ private fun CategoryManagerDialog(
             OutlinedTextField(
                 value = newName,
                 onValueChange = { newName = it },
-                label = { Text("New category") },
+                label = { Text(stringResource(R.string.new_category)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.weight(1f)
             )
-            Button(onClick = { add() }, enabled = newName.isNotBlank()) { Text("Add") }
+            Button(onClick = { add() }, enabled = newName.isNotBlank()) { Text(stringResource(R.string.add)) }
         }
         if (categories.isEmpty()) {
             Text(
-                "No categories yet. Add one above, or import a CSV file: its categories are added automatically.",
+                stringResource(R.string.no_categories_text),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -785,13 +790,13 @@ private fun CategoryManagerDialog(
                     Text(name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val n = counts[name.trim().lowercase()] ?: 0
                     Text(
-                        if (n == 1) "1 item" else "$n items",
+                        LocalContext.current.resources.getQuantityString(R.plurals.item_count, n, n),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(onClick = { toDelete = name }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete $name", tint = Red)
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_named, name), tint = Red)
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -802,20 +807,20 @@ private fun CategoryManagerDialog(
         val n = counts[name.trim().lowercase()] ?: 0
         AlertDialog(
             onDismissRequest = { toDelete = null },
-            title = { Text("Delete “$name”?") },
+            title = { Text(stringResource(R.string.delete_category_title, name)) },
             text = {
                 Text(
-                    if (n > 0) "The $n items in this category are kept, but their category becomes blank."
-                    else "No items use this category."
+                    if (n > 0) stringResource(R.string.delete_category_text_items, n)
+                    else stringResource(R.string.delete_category_text_none)
                 )
             },
             confirmButton = {
                 Button(
                     onClick = { onDelete(name); toDelete = null },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -837,8 +842,8 @@ private fun StockMoveDialog(
     val accent = if (isIn) Green else Orange
 
     CompactDialog(
-        title = if (isIn) "Check in" else "Check out",
-        confirmLabel = if (isIn) "Check in" else "Check out",
+        title = if (isIn) stringResource(R.string.check_in) else stringResource(R.string.check_out),
+        confirmLabel = if (isIn) stringResource(R.string.check_in) else stringResource(R.string.check_out),
         confirmEnabled = qty > 0 && !tooMany,
         confirmColor = accent,
         onConfirm = { onConfirm(qty, note.trim()) },
@@ -846,7 +851,7 @@ private fun StockMoveDialog(
     ) {
         Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(
-            "Current stock: ${item.quantity} ${item.unit}",
+            stringResource(R.string.current_stock, item.quantity, unitLabel(item.unit)),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(
@@ -855,12 +860,12 @@ private fun StockMoveDialog(
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
         ) {
             FilledTonalIconButton(onClick = { qtyText = (qty - 1).coerceAtLeast(1).toString() }) {
-                Icon(Icons.Default.Remove, contentDescription = "Less")
+                Icon(Icons.Default.Remove, contentDescription = stringResource(R.string.less))
             }
             OutlinedTextField(
                 value = qtyText,
                 onValueChange = { qtyText = it.filter(Char::isDigit).take(7) },
-                label = { Text("Quantity") },
+                label = { Text(stringResource(R.string.quantity)) },
                 singleLine = true,
                 isError = tooMany,
                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
@@ -868,12 +873,12 @@ private fun StockMoveDialog(
                 modifier = Modifier.width(150.dp)
             )
             FilledTonalIconButton(onClick = { qtyText = (qty + 1).toString() }) {
-                Icon(Icons.Default.Add, contentDescription = "More")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.more))
             }
         }
         Text(
-            if (tooMany) "Not enough stock (only ${item.quantity} ${item.unit})"
-            else "Stock after: $after ${item.unit}",
+            if (tooMany) stringResource(R.string.not_enough_stock, item.quantity, unitLabel(item.unit))
+            else stringResource(R.string.stock_after, after, unitLabel(item.unit)),
             color = if (tooMany) Red else accent,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth(),
@@ -882,7 +887,7 @@ private fun StockMoveDialog(
         OutlinedTextField(
             value = note,
             onValueChange = { note = it },
-            label = { Text(if (isIn) "Note (supplier, delivery…)" else "Note (customer, job…)") },
+            label = { Text(if (isIn) stringResource(R.string.note_supplier) else stringResource(R.string.note_customer)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )

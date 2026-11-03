@@ -1,5 +1,6 @@
 package com.stocktrack.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,12 +16,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.stocktrack.app.data.Language
 import com.stocktrack.app.ui.AdminLoginDialog
 import com.stocktrack.app.ui.DentTrackTheme
 import com.stocktrack.app.ui.MainScreen
 import com.stocktrack.app.ui.UserSelectScreen
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    /** The screens use the language chosen in Settings, not the tablet's own language. */
+    override fun attachBaseContext(newBase: Context) {
+        val localized = Language.context(newBase)
+        Locale.setDefault(localized.resources.configuration.locales[0]) // for dates and numbers
+        super.attachBaseContext(localized)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

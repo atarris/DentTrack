@@ -2,8 +2,11 @@
 
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import android.app.Activity
 import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,6 +59,7 @@ import com.stocktrack.app.data.StockImporter
 /** Admin only: automatic backup schedule, destinations, "back up now", stock import from CSV and restore. */
 @Composable
 fun BackupScreen(vm: StockViewModel, config: AppConfig) {
+    val context = LocalContext.current
     var pendingRestore by remember { mutableStateOf<Uri?>(null) }
 
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -66,7 +70,7 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
     }
     val driveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) vm.onDriveConsentResult(result.data)
-        else vm.showMessage("Google Drive was not connected")
+        else vm.showMessage(context.getString(R.string.drive_not_connected))
     }
 
     Column(
@@ -77,16 +81,15 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
     ) {
         // ------------------------------------------------------------ schedule
         BackupPanel(
-            title = "Automatic backup",
-            description = "Runs in the background on the chosen schedule, even when the app is closed. " +
-                "Needs at least one destination below."
+            title = stringResource(R.string.auto_backup_title),
+            description = stringResource(R.string.auto_backup_text)
         ) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 BackupSchedule.entries.forEach { schedule ->
                     FilterChip(
                         selected = config.backupSchedule == schedule,
                         onClick = { vm.setBackupSchedule(schedule) },
-                        label = { Text(schedule.label, maxLines = 1, softWrap = false) }
+                        label = { Text(stringResource(schedule.label), maxLines = 1, softWrap = false) }
                     )
                 }
             }
@@ -94,19 +97,19 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
 
         // -------------------------------------------------------- destinations
         BackupPanel(
-            title = "Backup destinations",
-            description = "Tick one or both. When both are ticked every backup goes to both places."
+            title = stringResource(R.string.destinations_title),
+            description = stringResource(R.string.destinations_text)
         ) {
             DestinationRow(
                 checked = config.backupLocal,
                 onChecked = { vm.setBackupLocal(it) },
-                title = "Local file storage",
-                detail = "Saved to: " + folderLabel(config.backupFolderUri)
+                title = stringResource(R.string.local_storage),
+                detail = stringResource(R.string.saved_to, folderLabel(config.backupFolderUri))
             ) {
                 OutlinedButton(onClick = { folderLauncher.launch(null) }) {
                     Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Choose folder")
+                    Text(stringResource(R.string.choose_folder))
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -115,9 +118,9 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
                 onChecked = { vm.setBackupDrive(it) },
                 title = "Google Drive",
                 detail = if (config.driveConnected) {
-                    "Connected. Files go to the folder “DentTrack Backups” in your Drive."
+                    stringResource(R.string.drive_connected_text)
                 } else {
-                    "Not connected yet. Tap Connect and allow access."
+                    stringResource(R.string.drive_not_connected_text)
                 }
             ) {
                 OutlinedButton(
@@ -126,21 +129,20 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
                             driveLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
                         }
                     }
-                ) { Text(if (config.driveConnected) "Reconnect" else "Connect") }
+                ) { Text(if (config.driveConnected) stringResource(R.string.reconnect) else stringResource(R.string.connect)) }
             }
         }
 
         // ------------------------------------------------------ run + status
         BackupPanel(
-            title = "Back up now",
-            description = "The backup is the same Excel file as the Storage report on the Reports tab " +
-                "(Summary, Stock, Low stock, Activity log, Users)."
+            title = stringResource(R.string.backup_now),
+            description = stringResource(R.string.backup_now_text)
         ) {
             Text(
                 if (config.lastBackupAt > 0L) {
-                    "Last backup: ${formatTime(config.lastBackupAt)}\n${config.lastBackupStatus}"
+                    stringResource(R.string.last_backup, formatTime(config.lastBackupAt), config.lastBackupStatus)
                 } else {
-                    "No backup has run yet."
+                    stringResource(R.string.no_backup_yet)
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -150,7 +152,7 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
             ) {
                 Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Back up now")
+                Text(stringResource(R.string.backup_now))
             }
         }
 
@@ -159,10 +161,8 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
 
         // ------------------------------------------------------------- restore
         BackupPanel(
-            title = "Restore from local file",
-            description = "Pick a DentTrack backup or report file (.xlsx) stored on this tablet. All items and the " +
-                "whole activity log are replaced by the content of the file. Users in the file are added; " +
-                "existing users stay. Settings and the Admin password are not part of the file."
+            title = stringResource(R.string.restore_title),
+            description = stringResource(R.string.restore_text)
         ) {
             OutlinedButton(
                 onClick = { restoreLauncher.launch(arrayOf("*/*")) },
@@ -170,7 +170,7 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
             ) {
                 Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Restore from local file")
+                Text(stringResource(R.string.restore_title))
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -180,11 +180,10 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
         KeepAwakeWhileShown()
         AlertDialog(
             onDismissRequest = { pendingRestore = null },
-            title = { Text("Overwrite current data?") },
+            title = { Text(stringResource(R.string.overwrite_title)) },
             text = {
                 Text(
-                    "All current items and the activity log will be replaced by the content of the selected file. " +
-                        "This cannot be undone. Tip: use “Back up now” first if you want to keep the current data."
+                    stringResource(R.string.overwrite_text)
                 )
             },
             confirmButton = {
@@ -194,9 +193,9 @@ fun BackupScreen(vm: StockViewModel, config: AppConfig) {
                         pendingRestore = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Red)
-                ) { Text("Overwrite") }
+                ) { Text(stringResource(R.string.overwrite)) }
             },
-            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -231,10 +230,12 @@ private fun DestinationRow(
 }
 
 /** A readable name for the chosen folder, or the default app folder. */
+@Composable
 private fun folderLabel(uri: String?): String {
-    if (uri == null) return "app storage (Android/data/com.stocktrack.app/files/backups)"
-    val last = Uri.parse(uri).lastPathSegment ?: return "chosen folder"
-    return last.substringAfter(':', last).ifBlank { "chosen folder" }
+    if (uri == null) return stringResource(R.string.app_storage_folder)
+    val chosen = stringResource(R.string.chosen_folder)
+    val last = Uri.parse(uri).lastPathSegment ?: return chosen
+    return last.substringAfter(':', last).ifBlank { chosen }
 }
 
 /**
@@ -254,23 +255,21 @@ private fun ImportPanel(vm: StockViewModel) {
     }
 
     BackupPanel(
-        title = "Import stock from CSV",
-        description = "Reads a CSV file with the item name in column A, the category in column B and the " +
-            "quantity in column C (a heading row is fine). Categories that DentTrack does not have yet are " +
-            "added to Category management. Items that already exist (same category and name) are not changed."
+        title = stringResource(R.string.import_title),
+        description = stringResource(R.string.import_text)
     ) {
         OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) {
             Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Choose CSV file…")
+            Text(stringResource(R.string.choose_csv))
         }
     }
 
     preview?.let { p ->
         val toImport = if (includeNegative) p.rows + p.negative else p.rows
         CompactDialog(
-            title = "Import preview",
-            confirmLabel = "Import ${toImport.size}",
+            title = stringResource(R.string.import_preview),
+            confirmLabel = stringResource(R.string.import_count, toImport.size),
             confirmEnabled = toImport.isNotEmpty(),
             onConfirm = {
                 vm.importStock(toImport)
@@ -279,15 +278,16 @@ private fun ImportPanel(vm: StockViewModel) {
             onDismiss = { preview = null }
         ) {
             Text(
-                "${toImport.size} items in ${toImport.map { it.category }.distinct().size} categories will be added.",
+                stringResource(R.string.import_summary, toImport.size, toImport.map { it.category }.distinct().size),
                 fontWeight = FontWeight.SemiBold
             )
-            toImport.groupingBy { it.category.ifEmpty { "(no category)" } }.eachCount().toSortedMap().forEach { (category, count) ->
+            val noCategory = stringResource(R.string.no_category_paren)
+            toImport.groupingBy { it.category.ifEmpty { noCategory } }.eachCount().toSortedMap().forEach { (category, count) ->
                 Text("$category: $count", style = MaterialTheme.typography.bodyMedium)
             }
             if (p.newCategories.isNotEmpty()) {
                 Text(
-                    "New categories: " + p.newCategories.joinToString(", "),
+                    stringResource(R.string.new_categories, p.newCategories.joinToString(", ")),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -295,14 +295,14 @@ private fun ImportPanel(vm: StockViewModel) {
             if (p.negative.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = includeNegative, onCheckedChange = { includeNegative = it })
-                    Text("Also import the ${p.negative.size} items with a negative quantity, as 0")
+                    Text(stringResource(R.string.import_negative, p.negative.size))
                 }
             }
             val notes = buildList {
-                if (p.negative.isNotEmpty() && !includeNegative) add("${p.negative.size} with a negative quantity skipped")
-                if (p.alreadyInApp > 0) add("${p.alreadyInApp} already in DentTrack skipped")
-                if (p.duplicatesInFile > 0) add("${p.duplicatesInFile} repeated in the file skipped")
-                if (p.unreadable > 0) add("${p.unreadable} with no quantity (or not a number) skipped")
+                if (p.negative.isNotEmpty() && !includeNegative) add(stringResource(R.string.skipped_negative, p.negative.size))
+                if (p.alreadyInApp > 0) add(stringResource(R.string.skipped_existing, p.alreadyInApp))
+                if (p.duplicatesInFile > 0) add(stringResource(R.string.skipped_repeated, p.duplicatesInFile))
+                if (p.unreadable > 0) add(stringResource(R.string.skipped_unreadable, p.unreadable))
             }
             if (notes.isNotEmpty()) {
                 Text(

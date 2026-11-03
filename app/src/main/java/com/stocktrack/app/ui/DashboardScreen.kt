@@ -1,5 +1,7 @@
 package com.stocktrack.app.ui
 
+import androidx.compose.ui.res.stringResource
+import com.stocktrack.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,17 +57,17 @@ fun DashboardScreen(
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard("Items", "${stock.size}", Icons.Default.Inventory2, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatCard(stringResource(R.string.tab_items),"${stock.size}", Icons.Default.Inventory2, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
             StatCard(
-                "Units in stock", "%,d".format(stock.sumOf { it.quantity.toLong() }),
+                stringResource(R.string.units_in_stock), "%,d".format(stock.sumOf { it.quantity.toLong() }),
                 Icons.Default.Layers, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
             )
             StatCard(
-                "Low stock alerts", "$lowCount",
+                stringResource(R.string.low_stock_alerts), "$lowCount",
                 Icons.Default.NotificationsActive, if (lowCount > 0) Red else Green, Modifier.weight(1f)
             )
             StatCard(
-                "Stock value", formatMoney(stock.sumOf { it.stockValue() }),
+                stringResource(R.string.stock_value), formatMoney(stock.sumOf { it.stockValue() }),
                 Icons.Default.Payments, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
             )
         }
@@ -77,11 +79,11 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Panel(Modifier.weight(1f).fillMaxHeight()) {
-                SectionTitle("Low stock alerts")
+                SectionTitle(stringResource(R.string.low_stock_alerts))
                 if (alerts.isEmpty()) {
                     EmptyText(
-                        if (stock.isEmpty()) "No items yet. Add your first item on the Items tab."
-                        else "Nothing is running low.",
+                        if (stock.isEmpty()) stringResource(R.string.no_items_add_first)
+                        else stringResource(R.string.nothing_low),
                         Modifier.fillMaxWidth()
                     )
                 } else {
@@ -100,13 +102,13 @@ fun DashboardScreen(
                                         maxLines = 1, overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        "Alert level ${item.alertLevel(threshold)} ${item.unit}",
+                                        stringResource(R.string.alert_level_value, item.alertLevel(threshold), unitLabel(item.unit)),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Pill(
-                                    if (item.isOut()) "Out of stock" else "${item.quantity} ${item.unit} left",
+                                    if (item.isOut()) stringResource(R.string.out_of_stock) else stringResource(R.string.items_left, item.quantity, unitLabel(item.unit)),
                                     Red
                                 )
                             }
@@ -117,9 +119,9 @@ fun DashboardScreen(
             }
 
             Panel(Modifier.weight(1f).fillMaxHeight()) {
-                SectionTitle("Recent activity")
+                SectionTitle(stringResource(R.string.recent_activity))
                 if (log.isEmpty()) {
-                    EmptyText("No activity yet.", Modifier.fillMaxWidth())
+                    EmptyText(stringResource(R.string.no_activity), Modifier.fillMaxWidth())
                 } else {
                     LazyColumn(Modifier.weight(1f)) {
                         items(log.take(25), key = { it.id }) { entry ->
