@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Switch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -42,8 +43,9 @@ import com.stocktrack.app.StockViewModel
 import com.stocktrack.app.data.AppConfig
 
 /**
- * Admin only. Two groups: "Admin & user settings" (Admin visibility, password, inactivity timeout)
- * and "Stock management" (low stock threshold). Categories are managed under Items, import under Backup.
+ * Admin only. Three groups: "Admin & user settings" (Admin visibility, password, inactivity timeout),
+ * "Stock management" (low stock threshold) and "Reset and clear". Categories are managed under Items,
+ * import under Backup.
  */
 @Composable
 fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
@@ -58,11 +60,15 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
         AdminVisibilityCard(vm, config)
         PasswordCard(vm, config)
         TimeoutCard(vm, config)
-        ResetConfigCard(vm)
 
         // ---- Stock management: how stock is judged
         SectionTitle("Stock management")
         LowStockCard(vm, config)
+
+        // ---- Reset and clear: the actions that undo things, kept apart at the bottom
+        SectionTitle("Reset and clear")
+        ResetConfigCard(vm)
+        ClearStockCard(vm)
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -246,6 +252,63 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
                 ) { Text("Remove password") }
             },
             dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun ClearStockCard(vm: StockViewModel) {
+    var open by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
+    var alsoLog by remember { mutableStateOf(false) }
+
+    SettingsPanel(
+        title = "Clear stock database",
+        description = "Deletes every item and category, to start again or before a fresh import. Users, settings " +
+            "and the Admin password are kept. Make a backup first: this cannot be undone."
+    ) {
+        OutlinedButton(
+            onClick = {
+                typed = ""
+                alsoLog = false
+                open = true
+            },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+        ) { Text("Clear stock database") }
+    }
+
+    if (open) {
+        KeepAwakeWhileShown()
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text("Clear the stock database?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("All items, their quantities and all categories will be deleted. The only way back is restoring a backup.")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = alsoLog, onCheckedChange = { alsoLog = it })
+                        Text("Also clear the activity log")
+                    }
+                    OutlinedTextField(
+                        value = typed,
+                        onValueChange = { typed = it },
+                        label = { Text("Type DELETE to confirm") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = typed.trim() == "DELETE",
+                    onClick = {
+                        vm.clearStockDatabase(alsoLog)
+                        open = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Red)
+                ) { Text("Clear database") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } }
         )
     }
 }

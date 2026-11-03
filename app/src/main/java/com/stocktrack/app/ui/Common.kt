@@ -1,5 +1,6 @@
 package com.stocktrack.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,13 +33,16 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stocktrack.app.data.ActionType
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -76,6 +81,13 @@ private val LightColors = lightColorScheme(
     onBackground = DentTrackColors.TextPrimary,
     surface = DentTrackColors.Surface,
     onSurface = DentTrackColors.TextPrimary,
+    // Without these, dialogs and menus take a lavender tint from the Material default palette.
+    surfaceContainerLowest = DentTrackColors.Surface,
+    surfaceContainerLow = DentTrackColors.Surface,
+    surfaceContainer = DentTrackColors.Surface,
+    surfaceContainerHigh = DentTrackColors.Surface,
+    surfaceContainerHighest = DentTrackColors.AppBackground,
+    surfaceTint = DentTrackColors.Mint,
     surfaceVariant = DentTrackColors.Mint,
     onSurfaceVariant = DentTrackColors.TextSecondary,
     outline = DentTrackColors.TextSecondary,
@@ -83,9 +95,43 @@ private val LightColors = lightColorScheme(
     error = DentTrackColors.Error
 )
 
+/** All text in the app is larger than the Material default, so it reads easily on a clinic tablet. */
+private const val TEXT_SCALE = 1.18f
+
+private fun TextStyle.larger(): TextStyle =
+    copy(fontSize = fontSize * TEXT_SCALE, lineHeight = lineHeight * TEXT_SCALE)
+
+private val LargeTypography = Typography().run {
+    copy(
+        displayLarge = displayLarge.larger(),
+        displayMedium = displayMedium.larger(),
+        displaySmall = displaySmall.larger(),
+        headlineLarge = headlineLarge.larger(),
+        headlineMedium = headlineMedium.larger(),
+        headlineSmall = headlineSmall.larger(),
+        titleLarge = titleLarge.larger(),
+        titleMedium = titleMedium.larger(),
+        titleSmall = titleSmall.larger(),
+        bodyLarge = bodyLarge.larger(),
+        bodyMedium = bodyMedium.larger(),
+        bodySmall = bodySmall.larger(),
+        labelLarge = labelLarge.larger(),
+        labelMedium = labelMedium.larger(),
+        labelSmall = labelSmall.larger()
+    )
+}
+
+private val SoftShapes = Shapes(
+    extraSmall = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
 @Composable
 fun DentTrackTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = LightColors, typography = Typography(), content = content)
+    MaterialTheme(colorScheme = LightColors, typography = LargeTypography, shapes = SoftShapes, content = content)
 }
 
 /** White rounded card used for every block on screen. */
@@ -93,9 +139,10 @@ fun DentTrackTheme(content: @Composable () -> Unit) {
 fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp
+        border = BorderStroke(1.dp, DentTrackColors.Border),
+        shadowElevation = 2.dp
     ) {
         Column(content = content)
     }
@@ -221,14 +268,15 @@ fun Avatar(name: String, size: Dp = 40.dp) {
         Modifier
             .size(size)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer),
+            .background(Brush.linearGradient(listOf(DentTrackColors.Mint, DentTrackColors.MintDark))),
         contentAlignment = Alignment.Center
     ) {
         Text(
             name.trim().take(1).uppercase(),
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            fontWeight = FontWeight.Bold,
-            style = if (size >= 56.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium
+            color = DentTrackColors.PrimaryDark,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = (size.value * 0.56f).sp,
+            lineHeight = (size.value * 0.56f).sp
         )
     }
 }

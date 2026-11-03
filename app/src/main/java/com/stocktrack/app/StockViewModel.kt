@@ -446,6 +446,34 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ------------------------------------------------------- clear database
+
+    /** Deletes all items and categories, and the activity log when [alsoLog] is set. Users and settings stay. */
+    fun clearStockDatabase(alsoLog: Boolean) {
+        if (!requireAdmin()) return
+        viewModelScope.launch {
+            val user = who()
+            val count = db.withTransaction {
+                val removed = dao.itemsOnce().size
+                dao.clearItems()
+                dao.clearCategories()
+                if (alsoLog) {
+                    dao.clearLog()
+                } else {
+                    dao.insertLog(
+                        LogEntry(
+                            timestamp = System.currentTimeMillis(), userName = user, itemId = 0L,
+                            itemName = "Stock database", type = ActionType.ITEM_REMOVED, change = 0,
+                            quantityAfter = 0, note = "Cleared, $removed items removed"
+                        )
+                    )
+                }
+                removed
+            }
+            say("Stock database cleared, $count items removed")
+        }
+    }
+
     // --------------------------------------------------------------- export
 
     /** Writes the Excel storage report to a file the user chose (Storage Access Framework). */

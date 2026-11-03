@@ -55,7 +55,7 @@ private const val W_USER = 1.0f
 private const val W_ACTION = 1.1f
 private const val W_ITEM = 2.0f
 private const val W_CHANGE = 0.7f
-private const val W_AFTER = 0.8f
+private const val W_AFTER = 1.0f
 private const val W_NOTE = 1.8f
 
 @Composable
@@ -197,7 +197,7 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
 private fun RowScope.HeaderCell(text: String, weight: Float, align: TextAlign = TextAlign.Start) {
     Text(
         text,
-        modifier = Modifier.weight(weight),
+        modifier = Modifier.weight(weight).padding(end = 8.dp),
         textAlign = align,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

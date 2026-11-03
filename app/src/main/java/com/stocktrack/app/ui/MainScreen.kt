@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -158,6 +159,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                         .fillMaxSize()
                 ) {
                     NavigationRail(
+                        modifier = Modifier.width(104.dp),
                         containerColor = MaterialTheme.colorScheme.surface,
                         header = {
                             // The app icon leads home: back to the user selection screen.
@@ -189,7 +191,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                             Icon(t.icon, contentDescription = t.label)
                                         }
                                     },
-                                    label = { Text(t.label) },
+                                    label = { Text(t.label, maxLines = 1, softWrap = false) },
                                     alwaysShowLabel = true
                                 )
                             }

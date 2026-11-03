@@ -87,6 +87,9 @@ interface StockDao {
     @Query("DELETE FROM items")
     suspend fun clearItems()
 
+    @Query("DELETE FROM categories")
+    suspend fun clearCategories()
+
     @Query("DELETE FROM activity_log")
     suspend fun clearLog()
 }

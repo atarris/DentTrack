@@ -59,6 +59,12 @@ import java.util.Calendar
 
 private class CategoryRow(val name: String, val items: Int, val units: Long, val value: Double)
 
+/** Room for the report card on top of the Reports screen, including the gap below it. */
+private val REPORT_CARD_ALLOWANCE = 300.dp
+
+/** Below this width the Monthly Report card stacks its two halves. */
+private val MONTHLY_SIDE_BY_SIDE = 760.dp
+
 @Composable
 fun ReportsScreen(
     vm: StockViewModel,
@@ -85,31 +91,27 @@ fun ReportsScreen(
 
     val exportStorage = { exportLauncher.launch(BackupRunner.fileName()) }
 
-    // The whole screen scrolls, so the report cards never squeeze the two lists on a short screen.
+    // The whole screen scrolls, so the report card never squeezes the two lists on a short screen.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // The lists take the height left under the report card, so it all fits in the window when it can.
+    val listHeight = (maxHeight - REPORT_CARD_ALLOWANCE).coerceAtLeast(260.dp)
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (isAdmin && maxWidth >= 900.dp) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StorageReportCard(Modifier.weight(1f), exportStorage)
-                    MonthlyReportCard(Modifier.weight(1f), vm, config)
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StorageReportCard(Modifier.fillMaxWidth(), exportStorage)
-                    if (isAdmin) MonthlyReportCard(Modifier.fillMaxWidth(), vm, config)
-                }
-            }
+        // The Admin has the same file as the Storage report on the Backup tab.
+        if (isAdmin) {
+            MonthlyReportCard(Modifier.fillMaxWidth(), vm, config)
+        } else {
+            StorageReportCard(Modifier.fillMaxWidth(), exportStorage)
         }
 
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(440.dp),
+                .height(listHeight),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ---------------------------------------------------- category summary
@@ -182,7 +184,7 @@ fun ReportsScreen(
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+    }
     }
 }
 
@@ -220,17 +222,15 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
         if (uri != null) vm.exportMonthlyReport(uri, year)
     }
 
-    Panel(modifier) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val exportPart: @Composable (Modifier) -> Unit = { partModifier ->
+        Column(partModifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Monthly report", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
-                "One Excel file for a whole year with a sheet for every category. Each item shows " +
-                    "check in, check out and items left for every month, plus a Total column.",
+                "One Excel file for a whole year. It opens with charts and the Top 10 items for the month and " +
+                    "the year, then has a sheet for every category with check in, check out and items left per month.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Year", fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalIconButton(onClick = { year = (year - 1).coerceAtLeast(2000) }) {
                     Icon(Icons.Default.Remove, contentDescription = "Previous year")
                 }
@@ -238,15 +238,17 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
                 FilledTonalIconButton(onClick = { year = (year + 1).coerceAtMost(2100) }) {
                     Icon(Icons.Default.Add, contentDescription = "Next year")
                 }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { exportLauncher.launch("DentTrack_MonthlyReport_$year.xlsx") }) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Export", maxLines = 1)
+                }
             }
-            Button(onClick = { exportLauncher.launch("DentTrack_MonthlyReport_$year.xlsx") }) {
-                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.size(8.dp))
-                Text("Export monthly report")
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
+        }
+    }
+    val drivePart: @Composable (Modifier) -> Unit = { partModifier ->
+        Column(partModifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Save to Google Drive on the 1st of every month", fontWeight = FontWeight.SemiBold)
@@ -264,13 +266,32 @@ private fun MonthlyReportCard(modifier: Modifier, vm: StockViewModel, config: Ap
                 Text(
                     "Last upload: ${formatTime(config.lastMonthlyAt)}\n${config.lastMonthlyStatus}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             OutlinedButton(onClick = { vm.uploadMonthlyReportNow(year) }, enabled = config.driveConnected) {
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Save $year to Drive now")
+                Text("Save $year to Drive now", maxLines = 1)
+            }
+        }
+    }
+
+    Panel(modifier) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(20.dp)) {
+            if (maxWidth >= MONTHLY_SIDE_BY_SIDE) {
+                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                    exportPart(Modifier.weight(1f))
+                    drivePart(Modifier.weight(1f))
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    exportPart(Modifier.fillMaxWidth())
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    drivePart(Modifier.fillMaxWidth())
+                }
             }
         }
     }
