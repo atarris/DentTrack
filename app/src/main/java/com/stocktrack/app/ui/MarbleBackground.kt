@@ -25,14 +25,12 @@ import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-private val MarbleGreen = Color(0xFFBFE6D0)   // soft green in the upper-right corner
-private val MarbleMist = Color(0xFFE6F5EC)    // halfway between the green and white
-private val VeinGreen = Color(0xFF1E8553)     // app accent, used at very low opacity
+private val VeinGreen = DentTrackColors.Primary     // used at very low opacity
 
 /**
- * "Marble styling" background for the start screen: a soft green linear gradient that starts in the
- * upper-right corner and fades to clean white across the screen, with faint marble veins that drift
- * slowly, and a shine that sweeps over the screen every few seconds (a quiet live wallpaper).
+ * Background for the start screen: near-white with soft mint waves in the upper-left and lower-right
+ * corners that move gently, faint marble veins that drift slowly, and a shine that sweeps over the
+ * screen every few seconds (a quiet live wallpaper).
  */
 @Composable
 fun MarbleBackground(
@@ -77,18 +75,64 @@ private fun DrawScope.drawMarble(shine: Float, drift: Float) {
     val w = size.width
     val h = size.height
     val breathe = sin(drift)
+    val sway = sin(drift + 1.6f)
 
-    // 1) Base: soft green from the top-right corner, blending into clean white.
-    drawRect(Color.White)
-    drawRect(
-        Brush.linearGradient(
-            0.00f to MarbleGreen,
-            0.30f to MarbleMist,
-            0.65f to Color.White,
-            1.00f to Color.White,
-            start = Offset(w * (1.00f + 0.03f * breathe), -h * 0.02f),
-            end = Offset(w * (0.30f - 0.03f * breathe), h * 1.05f)
-        )
+    // 1) Base: near-white, with two layers of soft mint waves in opposite corners.
+    drawRect(DentTrackColors.AppBackground)
+    val mint = DentTrackColors.Mint
+    val topLeft = Offset(0f, 0f)
+    val bottomRight = Offset(w, h)
+    drawPath(
+        Path().apply {
+            moveTo(0f, 0f)
+            lineTo(w * (0.38f + 0.015f * breathe), 0f)
+            cubicTo(
+                w * 0.27f, h * (0.10f + 0.015f * sway),
+                w * 0.13f, h * (0.12f - 0.015f * breathe),
+                0f, h * (0.24f + 0.012f * sway)
+            )
+            close()
+        },
+        Brush.linearGradient(listOf(mint, mint.copy(alpha = 0.35f)), topLeft, Offset(w * 0.38f, h * 0.24f))
+    )
+    drawPath(
+        Path().apply {
+            moveTo(0f, 0f)
+            lineTo(w * (0.24f - 0.012f * sway), 0f)
+            cubicTo(
+                w * 0.17f, h * (0.06f - 0.012f * breathe),
+                w * 0.08f, h * (0.07f + 0.012f * sway),
+                0f, h * (0.15f - 0.010f * breathe)
+            )
+            close()
+        },
+        mint.copy(alpha = 0.55f)
+    )
+    drawPath(
+        Path().apply {
+            moveTo(w, h)
+            lineTo(w * (0.58f - 0.015f * breathe), h)
+            cubicTo(
+                w * 0.72f, h * (0.92f - 0.015f * sway),
+                w * 0.85f, h * (0.76f + 0.015f * breathe),
+                w, h * (0.66f - 0.012f * sway)
+            )
+            close()
+        },
+        Brush.linearGradient(listOf(mint, mint.copy(alpha = 0.35f)), bottomRight, Offset(w * 0.60f, h * 0.66f))
+    )
+    drawPath(
+        Path().apply {
+            moveTo(w, h)
+            lineTo(w * (0.74f + 0.012f * sway), h)
+            cubicTo(
+                w * 0.83f, h * (0.95f + 0.012f * breathe),
+                w * 0.92f, h * (0.86f - 0.012f * sway),
+                w, h * (0.80f + 0.010f * breathe)
+            )
+            close()
+        },
+        mint.copy(alpha = 0.55f)
     )
 
     // 2) Marble veins: a few long, thin curves, strongest near the green corner.

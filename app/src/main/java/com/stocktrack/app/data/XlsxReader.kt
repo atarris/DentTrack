@@ -47,8 +47,9 @@ object XlsxReader {
                 val name = p.getAttributeValue(null, "name") ?: continue
                 var relId: String? = null
                 for (i in 0 until p.attributeCount) {
-                    // attribute is written as r:id (the prefix is not resolved by this parser)
-                    if (p.getAttributeName(i).endsWith(":id")) relId = p.getAttributeValue(i)
+                    // Written as r:id. Android's parser resolves namespaces, so it reports the name as just "id".
+                    val attribute = p.getAttributeName(i)
+                    if (attribute == "id" || attribute.endsWith(":id")) relId = p.getAttributeValue(i)
                 }
                 if (relId != null) out.add(name to relId)
             }

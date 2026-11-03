@@ -27,6 +27,10 @@ object BackupRunner {
 
     class Outcome(val message: String, val success: Boolean)
 
+    /** Name of a backup file. Reports > Export to Excel saves the same file under the same name. */
+    fun fileName(): String =
+        "DentTrack_Backup_" + SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date()) + ".xlsx"
+
     suspend fun run(context: Context, generatedBy: String): Outcome {
         val app = context.applicationContext
         val settings = AppSettings(app)
@@ -45,8 +49,7 @@ object BackupRunner {
             threshold = config.lowStockThreshold,
             categories = dao.categoriesOnce().map { it.name }
         )
-        val fileName = "DentTrack_Backup_" +
-            SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date()) + ".xlsx"
+        val fileName = fileName()
 
         val parts = ArrayList<String>()
         var allOk = true

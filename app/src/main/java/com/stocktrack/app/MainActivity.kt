@@ -41,7 +41,13 @@ private fun AppRoot(vm: StockViewModel) {
     var showAdminPrompt by remember { mutableStateOf(false) }
 
     // Holding the "DentTrack" title for 3 seconds (start screen or main screen) lands here.
-    val openAdminPrompt: () -> Unit = { if (!isAdmin) showAdminPrompt = true }
+    val openAdminPrompt: () -> Unit = {
+        when {
+            isAdmin -> Unit
+            config.adminPasswordRemoved -> vm.adminEnterWithoutPassword()
+            else -> showAdminPrompt = true
+        }
+    }
 
     val userList = users
     val user = current

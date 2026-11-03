@@ -4,22 +4,27 @@ A BoxHero-style stock app for dental clinics. Kotlin, Jetpack Compose (Material 
 
 ## Using the app
 
-- **Users:** no sign-in. Tap your name on the start screen (*Add user* / *Manage users* edit the list).
+- **Users:** no sign-in. Tap your name on the start screen to open your menu. Tapping the box icon at the top left of the main screen goes back to the start screen. The Admin adds and removes users on the **Users** tab.
+- **Dashboard → Recent activity:** tapping an entry opens that item with the Check out window. An item with no stock opens without the window, and entries of removed items do nothing.
 - **Items, check in / out, activity log, low stock alerts, Excel report:** as before. Regular users can view items and check stock in and out. **Only the Admin can add, edit or remove items.**
-- **Hidden Admin entrance:** press and hold the **“DentTrack”** title for **3 seconds** (on the start screen or at the top of the main screen). The first time, you create the Admin password; after that you enter it. The Admin session is never remembered: after a restart, log-out or timeout the password is asked again. There is no password recovery; clearing the app’s data resets it (and deletes all stock data), so keep a backup.
+- **Hidden Admin entrance:** press and hold the **“DentTrack”** title for **3 seconds** (on the start screen or at the top of the main screen). The first time, you create the Admin password; after that you enter it. The Admin session is never remembered: after a restart, log-out or timeout the password is asked again. There is no password recovery; clearing the app’s data resets it (and deletes all stock data), so keep a backup. If the password was removed in Settings, the hold opens the Admin menu directly.
 - **Admin menus** (extra tabs, visible only in Admin mode):
+  - **Users:** add and remove users.
   - **Settings:** see below.
+- **Clear log (Activity tab, Admin):** deletes all activity entries after a confirmation. Stock quantities do not change, but Monthly Reports lose the movements that were in the log.
   - **Backup:** automatic schedule (Off / Daily / Weekly / Monthly), destinations (Local file storage and/or Google Drive, can be both), *Back up now*, *Import stock from CSV* and *Restore from local file*.
-- **Backup file = report file.** A backup is exactly the Excel file from *Reports → Export to Excel* (sheets: Summary, Stock, Low stock, Activity log, Users, Categories). Restoring reads that same file, so a report exported by hand can be restored too. Restore replaces all items and the activity log; users in the file are added, existing users stay; settings and the Admin password are not in the file.
+- **Backup file = report file.** A backup is exactly the Excel file from *Reports → Export to Excel*, saved under the same name, `DentTrack_Backup_yyyy-MM-dd_HHmm.xlsx` (sheets: Summary, Stock, Low stock, Activity log, Users, Categories). Restoring reads that same file, so a report exported by hand can be restored too. Restore replaces all items and the activity log; users in the file are added, existing users stay; settings and the Admin password are not in the file.
 - **Hide Admin user (Settings):** switch on = the Admin is only reachable with the 3-second hold; switch off = an “Admin” card appears on the user selection screen (tapping it still asks for the password).
 - **Monthly Report (Reports tab, Admin only):** an Excel file for a chosen year with one sheet per item category (plus an Overview sheet). Every item has three rows, Check in / Check out / Left (stock at the end of the month), with 12 month columns and a Total column. Initial stock (an item added or imported with a quantity) counts as the starting balance, not as a check in. Export it on request, or switch on *Save to Google Drive on the 1st of every month* (folder “DentTrack Monthly Reports”; needs Google Drive connected on the Backup tab; if the tablet is off on the 1st, it is saved the next day it is on and online). On Jan 1 it reports the year that just ended.
-- **Settings (Admin)** has two groups: *Admin & user settings* (hide Admin user, Admin password, inactivity timeout) and *Stock management* (low stock threshold).
+- **Settings (Admin)** has two groups: *Admin & user settings* (hide Admin user, Admin password, inactivity timeout, reset app configuration) and *Stock management* (low stock threshold).
+- **Admin password (Settings):** *Change password* or *Remove password*; both need the current password. Once removed, the card offers *Set password*.
+- **Reset app configuration (Settings):** puts the settings and backup options back to their defaults (automatic backups and the monthly Drive upload off, backup folder and Drive connection forgotten). Stock, the log, users, categories and the Admin password stay.
 - **Categories (Items tab, Admin):** the **Add / Edit item** window picks the category from a dropdown. The **Categories** button next to *Add* opens Category management: add or delete categories. Deleting a category keeps its items but blanks their category. Categories created by a CSV import or a restore are added automatically.
 - **Import stock from CSV (Backup tab, Admin):** column A = item name, column B = category, column C = quantity; a heading row is allowed; comma, semicolon or tab separated; UTF-8 or Windows-1257. Rows with a negative or empty quantity are skipped (the preview can import negatives as 0). Items that already exist (same category and name) are never changed, so the import can be repeated safely. `stock_import.csv` (made from Current_stock.xlsx) is an example.
 - **Activity limits:** the app lists the latest **100** activity entries; the backup/report file keeps the latest **999**. After restoring a backup older history is therefore not available to the Monthly Report.
-- **Start screen:** marble-style animated background (soft green from the upper-right corner fading to white, a shine sweeping across every few seconds) and the miclinic logo.
+- **Start screen:** animated background (soft mint waves in the upper-left and lower-right corners, marble veins, a shine sweeping across every few seconds), the Mi’ clinic logo and a grid of user cards. Colours are the `DentTrackColors` tokens in `ui/Common.kt`.
 - **Add / Edit item and Check in / out windows** have Cancel and Save in a bar at the top, so the on-screen keyboard cannot cover them.
-- **Logo:** `res/drawable-nodpi/logo_miclinic.png` (1122 x 429, transparent, colours matched to the app). To change it, replace that file (same name, no code change).
+- **Logo:** `res/drawable-nodpi/logo_miclinic.png` (1600 x 726, transparent). To change it, replace that file with one of the same proportions (same name, no code change).
 
 ## Build & run
 
@@ -56,7 +61,7 @@ app/src/main/java/com/stocktrack/app/
   data/DriveBackup.kt      Google Drive upload
   ui/MarbleBackground.kt  animated start-screen background
   ui/                      screens: UserSelect, Main, Dashboard, Items, Activity, Reports,
-                           Settings, Backup, Admin sign-in dialog, shared theme/components
+                           Users, Settings, Backup, Admin sign-in dialog, shared theme/components
 ```
 
 The Kotlin package is still `com.stocktrack.app` (renaming a package is an Android Studio refactor and would reset existing app data); everything visible to people says DentTrack.

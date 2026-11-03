@@ -16,13 +16,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +58,7 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
         AdminVisibilityCard(vm, config)
         PasswordCard(vm, config)
         TimeoutCard(vm, config)
+        ResetConfigCard(vm)
 
         // ---- Stock management: how stock is judged
         SectionTitle("Stock management")
@@ -142,26 +147,37 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
     var new by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    val hasPassword = config.adminPasswordSet
+    val clearFields = {
+        current = ""
+        new = ""
+        repeat = ""
+        error = null
+    }
 
     SettingsPanel(
         title = "Admin password",
-        description = if (config.adminPasswordSet) {
-            "Change the password used to open the Admin menu (hold the “DentTrack” title for 3 seconds). " +
+        description = if (hasPassword) {
+            "Change or remove the password used to open the Admin menu (hold the “DentTrack” title for 3 seconds). " +
                 "Any password is accepted; there are no complexity rules."
         } else {
-            "No password is set."
+            "No password is set: anyone who holds the “DentTrack” title for 3 seconds gets into the Admin menu. " +
+                "Enter a password below to protect it."
         }
     ) {
         val fieldModifier = Modifier.widthIn(max = 360.dp).fillMaxWidth()
-        OutlinedTextField(
-            value = current,
-            onValueChange = { current = it; error = null },
-            label = { Text("Current password") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = fieldModifier
-        )
+        if (hasPassword) {
+            OutlinedTextField(
+                value = current,
+                onValueChange = { current = it; error = null },
+                label = { Text("Current password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = fieldModifier
+            )
+        }
         OutlinedTextField(
             value = new,
             onValueChange = { new = it; error = null },
@@ -181,25 +197,97 @@ private fun PasswordCard(vm: StockViewModel, config: AppConfig) {
             modifier = fieldModifier
         )
         error?.let { Text(it, color = Red) }
-        Button(
-            enabled = current.isNotEmpty() && new.isNotEmpty(),
-            onClick = {
-                if (new != repeat) {
-                    error = "The new passwords are not the same"
-                } else {
-                    vm.changeAdminPassword(current, new) { ok ->
-                        if (ok) {
-                            current = ""
-                            new = ""
-                            repeat = ""
-                            error = null
-                        } else {
-                            error = "The current password is wrong"
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                enabled = (current.isNotEmpty() || !hasPassword) && new.isNotEmpty(),
+                onClick = {
+                    when {
+                        new != repeat -> error = "The new passwords are not the same"
+                        !hasPassword -> {
+                            vm.setAdminPassword(new)
+                            clearFields()
+                        }
+                        else -> vm.changeAdminPassword(current, new) { ok ->
+                            if (ok) clearFields() else error = "The current password is wrong"
                         }
                     }
                 }
+            ) { Text(if (hasPassword) "Change password" else "Set password") }
+            if (hasPassword) {
+                OutlinedButton(
+                    enabled = current.isNotEmpty(),
+                    onClick = { confirmRemove = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+                ) { Text("Remove password") }
             }
-        ) { Text("Change password") }
+        }
+    }
+
+    if (confirmRemove) {
+        KeepAwakeWhileShown()
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove the Admin password?") },
+            text = {
+                Text(
+                    "Anyone who holds the “DentTrack” title for 3 seconds will get into the Admin menu without " +
+                        "a password. They could change items, users and settings, or clear the log."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmRemove = false
+                        vm.removeAdminPassword(current) { ok ->
+                            if (ok) clearFields() else error = "The current password is wrong"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Red)
+                ) { Text("Remove password") }
+            },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun ResetConfigCard(vm: StockViewModel) {
+    var confirm by remember { mutableStateOf(false) }
+
+    SettingsPanel(
+        title = "Reset app configuration",
+        description = "Puts the settings on this screen and on the Backup tab back to their defaults. Stock, " +
+            "the activity log, users, categories and the Admin password are kept."
+    ) {
+        OutlinedButton(
+            onClick = { confirm = true },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+        ) { Text("Reset app configuration") }
+    }
+
+    if (confirm) {
+        KeepAwakeWhileShown()
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Reset app configuration?") },
+            text = {
+                Text(
+                    "Low stock threshold, inactivity timeout and Hide Admin user go back to their defaults. " +
+                        "Automatic backups and the monthly Drive upload are turned off, and the chosen backup " +
+                        "folder and Google Drive connection are forgotten."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.resetConfiguration()
+                        confirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Red)
+                ) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } }
+        )
     }
 }
 

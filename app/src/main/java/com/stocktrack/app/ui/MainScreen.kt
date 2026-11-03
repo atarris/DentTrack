@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
@@ -27,6 +30,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
@@ -66,6 +70,7 @@ enum class Tab(val label: String, val icon: ImageVector, val adminOnly: Boolean 
     Items("Items", Icons.Default.Inventory2),
     Activity("Activity", Icons.Default.History),
     Reports("Reports", Icons.Default.Assessment),
+    Users("Users", Icons.Default.Group, adminOnly = true),
     Settings("Settings", Icons.Default.Settings, adminOnly = true),
     Backup("Backup", Icons.Default.Backup, adminOnly = true)
 }
@@ -79,11 +84,12 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
 
     var tab by rememberSaveable { mutableStateOf(Tab.Dashboard) }
     var selectedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var startCheckOut by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val lowCount = items.count { it.isLow(threshold) }
 
-    // Settings and Backup exist for the Admin only.
+    // Users, Settings and Backup exist for the Admin only.
     val visibleTabs = Tab.entries.filter { !it.adminOnly || isAdmin }
     val activeTab = if (tab in visibleTabs) tab else Tab.Dashboard
 
@@ -154,32 +160,39 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                     NavigationRail(
                         containerColor = MaterialTheme.colorScheme.surface,
                         header = {
-                            Icon(
-                                Icons.Default.Inventory2,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(top = 8.dp, bottom = 8.dp)
-                                    .size(32.dp)
-                            )
+                            // The app icon leads home: back to the user selection screen.
+                            IconButton(onClick = { vm.switchUser() }) {
+                                Icon(
+                                    Icons.Default.Inventory2,
+                                    contentDescription = "Back to user selection",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
                         }
                     ) {
-                        visibleTabs.forEach { t ->
-                            NavigationRailItem(
-                                selected = activeTab == t,
-                                onClick = { tab = t },
-                                icon = {
-                                    if (t == Tab.Items && lowCount > 0) {
-                                        BadgedBox(badge = { Badge { Text("$lowCount") } }) {
+                        // Scrolls when all the Admin tabs do not fit on a short screen.
+                        Column(
+                            Modifier.verticalScroll(rememberScrollState()),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            visibleTabs.forEach { t ->
+                                NavigationRailItem(
+                                    selected = activeTab == t,
+                                    onClick = { tab = t },
+                                    icon = {
+                                        if (t == Tab.Items && lowCount > 0) {
+                                            BadgedBox(badge = { Badge { Text("$lowCount") } }) {
+                                                Icon(t.icon, contentDescription = t.label)
+                                            }
+                                        } else {
                                             Icon(t.icon, contentDescription = t.label)
                                         }
-                                    } else {
-                                        Icon(t.icon, contentDescription = t.label)
-                                    }
-                                },
-                                label = { Text(t.label) },
-                                alwaysShowLabel = true
-                            )
+                                    },
+                                    label = { Text(t.label) },
+                                    alwaysShowLabel = true
+                                )
+                            }
                         }
                     }
 
@@ -228,6 +241,11 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                     onOpenItem = { id ->
                                         selectedItemId = id
                                         tab = Tab.Items
+                                    },
+                                    onCheckOutItem = { id ->
+                                        selectedItemId = id
+                                        startCheckOut = true
+                                        tab = Tab.Items
                                     }
                                 )
                                 Tab.Items -> ItemsScreen(
@@ -237,9 +255,11 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                     threshold = threshold,
                                     isAdmin = isAdmin,
                                     selectedId = selectedItemId,
-                                    onSelect = { selectedItemId = it }
+                                    onSelect = { selectedItemId = it },
+                                    startCheckOut = startCheckOut,
+                                    onCheckOutStarted = { startCheckOut = false }
                                 )
-                                Tab.Activity -> ActivityScreen(log)
+                                Tab.Activity -> ActivityScreen(log, isAdmin, vm::clearLog)
                                 Tab.Reports -> ReportsScreen(
                                     vm = vm,
                                     stock = items,
@@ -251,6 +271,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                         tab = Tab.Items
                                     }
                                 )
+                                Tab.Users -> UsersScreen(vm)
                                 Tab.Settings -> SettingsScreen(vm, config)
                                 Tab.Backup -> BackupScreen(vm, config)
                             }

@@ -139,6 +139,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addUser(name: String) {
+        if (!requireAdmin()) return
         val clean = name.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
@@ -152,6 +153,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteUser(user: User) {
+        if (!requireAdmin()) return
         viewModelScope.launch {
             if (user.isAdminAccount()) return@launch
             if (users.value.orEmpty().count { !it.isAdminAccount() } <= 1) {
@@ -181,13 +183,24 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
                 onResult(false)
                 return@launch
             }
-            val admin = dao.adminUser()
-                ?: User(id = dao.insertUser(User(name = ADMIN_NAME)), name = ADMIN_NAME)
-            appSettings.clearCurrentUser()
-            adminAuthed.value = true
-            currentUserId.value = admin.id
+            enterAdmin()
             onResult(true)
         }
+    }
+
+    /** Opens the Admin menu directly. Only works after the Admin removed the password in Settings. */
+    fun adminEnterWithoutPassword() {
+        viewModelScope.launch {
+            if (appSettings.state.value.adminPasswordRemoved) enterAdmin()
+        }
+    }
+
+    private suspend fun enterAdmin() {
+        val admin = dao.adminUser()
+            ?: User(id = dao.insertUser(User(name = ADMIN_NAME)), name = ADMIN_NAME)
+        appSettings.clearCurrentUser()
+        adminAuthed.value = true
+        currentUserId.value = admin.id
     }
 
     fun changeAdminPassword(current: String, new: String, onResult: (Boolean) -> Unit) {
@@ -202,6 +215,28 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         appSettings.setAdminPassword(new)
         say("Admin password changed")
         onResult(true)
+    }
+
+    /** Removes the password after checking it. From then on the Admin menu opens without one. */
+    fun removeAdminPassword(current: String, onResult: (Boolean) -> Unit) {
+        if (!requireAdmin()) {
+            onResult(false)
+            return
+        }
+        if (!appSettings.checkAdminPassword(current)) {
+            onResult(false)
+            return
+        }
+        appSettings.removeAdminPassword()
+        say("Admin password removed")
+        onResult(true)
+    }
+
+    /** Sets a password again after it was removed. */
+    fun setAdminPassword(new: String) {
+        if (!requireAdmin() || new.isEmpty() || appSettings.hasAdminPassword()) return
+        appSettings.setAdminPassword(new)
+        say("Admin password set")
     }
 
     // ------------------------------------------------------------- settings
@@ -226,6 +261,34 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
             if (hide) "Admin is hidden. Hold the DentTrack title for 3 seconds to sign in."
             else "Admin is now shown on the user selection screen"
         )
+    }
+
+    /** Back to the default settings, schedules included. Stock, log, users and the Admin password stay. */
+    fun resetConfiguration() {
+        if (!requireAdmin()) return
+        val app = getApplication<Application>()
+        appSettings.state.value.backupFolderUri?.let { folder ->
+            runCatching {
+                app.contentResolver.releasePersistableUriPermission(
+                    Uri.parse(folder), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+        }
+        appSettings.resetConfig()
+        BackupScheduler.apply(app, appSettings.state.value, replace = true)
+        MonthlyReportScheduler.apply(app, appSettings.state.value.monthlyDrive, replace = true)
+        say("App configuration reset to defaults")
+    }
+
+    // ---------------------------------------------------------- activity log
+
+    /** Deletes every activity log entry. Stock quantities do not change. */
+    fun clearLog() {
+        if (!requireAdmin()) return
+        viewModelScope.launch {
+            dao.clearLog()
+            say("Activity log cleared")
+        }
     }
 
     // ---------------------------------------------------------------- items

@@ -44,28 +44,43 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** The mint and emerald design tokens. Screens use these (or the colour scheme built from them). */
+object DentTrackColors {
+    val Primary = Color(0xFF087F5B)
+    val PrimaryDark = Color(0xFF075C46)
+    val Mint = Color(0xFFDDF5E9)
+    val MintDark = Color(0xFFBDEBD6)
+    val AppBackground = Color(0xFFF8FBF9)
+    val Surface = Color(0xFFFFFFFF)
+    val TextPrimary = Color(0xFF17352E)
+    val TextSecondary = Color(0xFF71817C)
+    val Border = Color(0xFFE2EAE5)
+    val Error = Color(0xFFB42318)
+}
+
 val Green = Color(0xFF2E7D32)
 val Orange = Color(0xFFE65100)
-val Red = Color(0xFFC62828)
-val Accent = Color(0xFF1E8553)
+val Red = DentTrackColors.Error
+val Accent = DentTrackColors.Primary
 val Grey = Color(0xFF5B6B8C)
 
 private val LightColors = lightColorScheme(
-    primary = Accent,
+    primary = DentTrackColors.Primary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD3F0DF),
-    onPrimaryContainer = Color(0xFF06301B),
-    secondary = Color(0xFF4F6B5B),
-    secondaryContainer = Color(0xFFCDEFD9),
-    onSecondaryContainer = Color(0xFF0E2A1A),
-    background = Color(0xFFF1F9F4),
-    onBackground = Color(0xFF14201A),
-    surface = Color.White,
-    onSurface = Color(0xFF14201A),
-    surfaceVariant = Color(0xFFE4F2E9),
-    onSurfaceVariant = Color(0xFF52665A),
-    outlineVariant = Color(0xFFD5E5DB),
-    error = Red
+    primaryContainer = DentTrackColors.Mint,
+    onPrimaryContainer = DentTrackColors.PrimaryDark,
+    secondary = DentTrackColors.PrimaryDark,
+    secondaryContainer = DentTrackColors.Mint,
+    onSecondaryContainer = DentTrackColors.PrimaryDark,
+    background = DentTrackColors.AppBackground,
+    onBackground = DentTrackColors.TextPrimary,
+    surface = DentTrackColors.Surface,
+    onSurface = DentTrackColors.TextPrimary,
+    surfaceVariant = DentTrackColors.Mint,
+    onSurfaceVariant = DentTrackColors.TextSecondary,
+    outline = DentTrackColors.TextSecondary,
+    outlineVariant = DentTrackColors.Border,
+    error = DentTrackColors.Error
 )
 
 @Composable

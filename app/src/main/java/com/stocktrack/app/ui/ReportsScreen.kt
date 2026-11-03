@@ -48,16 +48,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stocktrack.app.StockViewModel
 import com.stocktrack.app.data.AppConfig
+import com.stocktrack.app.data.BackupRunner
 import com.stocktrack.app.data.Item
 import com.stocktrack.app.data.XlsxWriter
 import com.stocktrack.app.data.alertLevel
 import com.stocktrack.app.data.isLow
 import com.stocktrack.app.data.isOut
 import com.stocktrack.app.data.stockValue
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 private class CategoryRow(val name: String, val items: Int, val units: Long, val value: Double)
 
@@ -85,10 +83,7 @@ fun ReportsScreen(
     }
     val lowItems = remember(stock, threshold) { stock.filter { it.isLow(threshold) || it.isOut() }.sortedBy { it.quantity } }
 
-    val exportStorage = {
-        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        exportLauncher.launch("DentTrack_Report_$day.xlsx")
-    }
+    val exportStorage = { exportLauncher.launch(BackupRunner.fileName()) }
 
     // The whole screen scrolls, so the report cards never squeeze the two lists on a short screen.
     Column(

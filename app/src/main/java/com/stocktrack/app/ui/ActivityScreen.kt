@@ -7,21 +7,29 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,9 +59,10 @@ private const val W_AFTER = 0.8f
 private const val W_NOTE = 1.8f
 
 @Composable
-fun ActivityScreen(log: List<LogEntry>) {
+fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(LogFilter.All) }
+    var confirmClear by remember { mutableStateOf(false) }
 
     val filtered = remember(log, query, filter) {
         val q = query.trim().lowercase()
@@ -88,6 +97,17 @@ fun ActivityScreen(log: List<LogEntry>) {
             )
             LogFilter.entries.forEach { f ->
                 FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
+            }
+            if (isAdmin) {
+                OutlinedButton(
+                    onClick = { confirmClear = true },
+                    enabled = log.isNotEmpty(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Clear log", maxLines = 1)
+                }
             }
         }
 
@@ -145,6 +165,31 @@ fun ActivityScreen(log: List<LogEntry>) {
                 }
             }
         }
+    }
+
+    if (confirmClear) {
+        KeepAwakeWhileShown()
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear the log?") },
+            text = {
+                Text(
+                    "Are you sure you want to clear the log? All ${log.size} entries are deleted and cannot be " +
+                        "brought back, except from a backup. Stock quantities do not change, but Monthly " +
+                        "Reports lose the check ins and check outs that were in the log."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onClearLog()
+                        confirmClear = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Red)
+                ) { Text("Clear log") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
+        )
     }
 }
 

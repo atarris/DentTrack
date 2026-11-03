@@ -16,6 +16,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,10 +34,12 @@ fun DashboardScreen(
     stock: List<Item>,
     log: List<LogEntry>,
     threshold: Int,
-    onOpenItem: (Long) -> Unit
+    onOpenItem: (Long) -> Unit,
+    onCheckOutItem: (Long) -> Unit
 ) {
     val alerts = stock.filter { it.isLow(threshold) }.sortedBy { it.quantity }
     val lowCount = alerts.size
+    val existingIds = remember(stock) { stock.map { it.id }.toHashSet() }
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -111,6 +114,8 @@ fun DashboardScreen(
                             Row(
                                 Modifier
                                     .fillMaxWidth()
+                                    // Entries of items that were removed have nothing to open.
+                                    .clickable(enabled = entry.itemId in existingIds) { onCheckOutItem(entry.itemId) }
                                     .padding(horizontal = 20.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {

@@ -53,6 +53,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,7 +96,10 @@ fun ItemsScreen(
     threshold: Int,
     isAdmin: Boolean,
     selectedId: Long?,
-    onSelect: (Long?) -> Unit
+    onSelect: (Long?) -> Unit,
+    /** True when the selected item should open straight in the Check out window (Dashboard > Recent activity). */
+    startCheckOut: Boolean = false,
+    onCheckOutStarted: () -> Unit = {}
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(StockFilter.All) }
@@ -107,6 +111,13 @@ fun ItemsScreen(
     val categories by vm.categories.collectAsState()
 
     val selected = stock.firstOrNull { it.id == selectedId }
+    LaunchedEffect(startCheckOut) {
+        if (startCheckOut) {
+            // An empty item cannot be checked out, so it just opens, showing its details.
+            if (selected != null && selected.quantity > 0) moveType = ActionType.CHECK_OUT
+            onCheckOutStarted()
+        }
+    }
     val filtered = remember(stock, query, filter, threshold) {
         val q = query.trim().lowercase()
         stock.filter { item ->

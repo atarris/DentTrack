@@ -35,7 +35,9 @@ data class AppConfig(
     val monthlyDrive: Boolean = false,
     val lastMonthlyAt: Long = 0L,
     val lastMonthlyStatus: String = "",
-    val adminPasswordSet: Boolean = false
+    val adminPasswordSet: Boolean = false,
+    /** true = the Admin removed the password, so the Admin menu opens without asking for one. */
+    val adminPasswordRemoved: Boolean = false
 )
 
 /** Small key/value store (SharedPreferences) with a StateFlow so screens update live. */
@@ -72,7 +74,8 @@ class AppSettings(context: Context) {
         monthlyDrive = prefs.getBoolean(K_MONTHLY_DRIVE, false),
         lastMonthlyAt = prefs.getLong(K_MONTHLY_AT, 0L),
         lastMonthlyStatus = prefs.getString(K_MONTHLY_STATUS, "") ?: "",
-        adminPasswordSet = prefs.contains(K_PW_HASH)
+        adminPasswordSet = prefs.contains(K_PW_HASH),
+        adminPasswordRemoved = prefs.getBoolean(K_PW_REMOVED, false)
     )
 
     private fun edit(block: SharedPreferences.Editor.() -> Unit) {
@@ -97,6 +100,14 @@ class AppSettings(context: Context) {
     fun setInactivityMinutes(value: Int) = edit { putInt(K_INACTIVITY, value.coerceIn(0, 1_440)) }
 
     fun setHideAdmin(value: Boolean) = edit { putBoolean(K_HIDE_ADMIN, value) }
+
+    /** Back to the default settings. The current user and the Admin password are not configuration. */
+    fun resetConfig() = edit {
+        listOf(
+            K_LOW, K_INACTIVITY, K_SCHEDULE, K_LOCAL, K_DRIVE, K_FOLDER, K_DRIVE_CONNECTED,
+            K_LAST_AT, K_LAST_STATUS, K_HIDE_ADMIN, K_MONTHLY_DRIVE, K_MONTHLY_KEY, K_MONTHLY_AT, K_MONTHLY_STATUS
+        ).forEach { remove(it) }
+    }
 
     // ---------------------------------------------------------- monthly report
 
@@ -142,7 +153,14 @@ class AppSettings(context: Context) {
         edit {
             putString(K_PW_SALT, saltText)
             putString(K_PW_HASH, hash(saltText, password))
+            remove(K_PW_REMOVED)
         }
+    }
+
+    fun removeAdminPassword() = edit {
+        remove(K_PW_SALT)
+        remove(K_PW_HASH)
+        putBoolean(K_PW_REMOVED, true)
     }
 
     fun checkAdminPassword(password: String): Boolean {
@@ -182,5 +200,6 @@ class AppSettings(context: Context) {
         private const val K_MONTHLY_STATUS = "monthly_status"
         private const val K_PW_SALT = "admin_pw_salt"
         private const val K_PW_HASH = "admin_pw_hash"
+        private const val K_PW_REMOVED = "admin_pw_removed"
     }
 }
