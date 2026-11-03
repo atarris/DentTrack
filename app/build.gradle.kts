@@ -13,8 +13,8 @@ android {
         applicationId = "com.stocktrack.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 4
-        versionName = "3.2"
+        versionCode = 5
+        versionName = "4.0"
     }
 
     buildTypes {
