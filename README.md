@@ -10,11 +10,11 @@ No password: tap your name on the start screen to open your menu.
 
 | Menu | What you can do |
 |---|---|
-| **Dashboard** | See the number of items, units in stock, low stock alerts and stock value. Tap a low stock alert to open the item. Tap a Recent activity entry to open that item for check out. |
+| **Dashboard** | See the number of items, quantity in stock, low stock alerts and stock value. Tap a low stock alert to open the item. Tap a Recent activity entry to open that item for check out. |
 | **Items** | Search items and filter by low stock or out of stock. See an item's details and history. **Check in** and **Check out** stock, with a note. |
 | **Activity** | Read the activity log (latest 100 entries). Search it and filter by check in, check out or item changes. |
 | **Reports** | See stock by category and which items need restocking. Export the Storage report to Excel. |
-| **Info** | See the app version, build number, build date and who built it. |
+| **Info** | See the app version, build number, build date and who built it. Choose the app's color scheme. |
 
 The box icon at the top left, or *Switch user*, goes back to the start screen.
 
@@ -28,13 +28,19 @@ Open with a press and hold of 3 seconds on the **DentTrack** title, then enter t
 | **Activity** | Clear the log. |
 | **Reports** | Export the Monthly Report instead of the Storage report (charts, Top 10 items, month and year review, a sheet per category), or save it to Google Drive, on request or on the 1st of each month. |
 | **Users** | Add and remove users. |
-| **Settings** | Language (English or Lietuvių). Show or hide the Admin on the start screen. Change, remove or set the Admin password. Inactivity timeout. Low stock threshold. Reset app configuration. Clear stock database. |
+| **Settings** | Language (English or Lietuvių). GUI color scheme. Show or hide the Admin on the start screen. Change, remove or set the Admin password. Inactivity timeout. Low stock threshold. Web server. Reset app configuration. Clear stock database. |
 | **Backup** | Automatic backup schedule. Backup to a local folder and/or Google Drive. Back up now. Import stock from CSV. Restore from a backup file. |
+| **Web page** | Manage stock from a browser on the same network: see *Web server* below. |
 
 ## Using the app
 
 - **Language (Settings, Admin):** the screens can be English or Lithuanian, whatever language the tablet uses. In Lithuanian, Check in and Check out are *Pridėti* and *Paimti*, the report titles are *Sandėlio ataskaita* and *Mėnesinė ataskaita*, and the default unit `pcs` shows as *vnt*. Excel reports, backup files and their names always stay in English (the unit is saved as `pcs`), so backups restore in either language. Entries already in the activity log keep the wording they were saved with. Texts are in `res/values/strings.xml` (English) and `res/values-lt/strings.xml` (Lithuanian).
 - **Info:** shows the version, build number, build date and author. The build date is set automatically when the app is built.
+- **GUI color scheme (Info, everyone; Settings, Admin):** *Mint* (the original), *Blue* (the clean look of the web page: plain background, no shadows), *Amber*, *Violet*, *Pink* or *Lagoon* (teal with warm coral highlights), or *Random every day*, which shows a different one each day. Any user can change it, also the Admin on the web page, which shows the color in use. It changes the app for everyone at once; the web page keeps its own look.
+- **Hidden themes:** on by default. The start screen changes by itself, with animations and a Lithuanian greeting: Valentine's Day Feb 8-14, Vasario 16-oji Feb 15-21, Kovo 11-oji Mar 5-11, Joninės Jun 18-24, Mindauginės Jun 30-Jul 6, Halloween Oct 24-30, Beata's birthday Oct 31-Nov 2, Christmas Dec 19-25, New Year Dec 26-Jan 1. The Admin opens the switch and previews with a 3-second hold on the *GUI color scheme* title in Settings; leaving the tab hides them again. The dates are in `data/Seasons.kt` and the pictures in `ui/SeasonScenes.kt`.
+- **Web server (Settings, Admin):** switch it on in *Settings → Web access*, and the card shows the address to open, such as `http://192.168.1.20:8080`. The page works from any computer or phone on the same network and lets the Admin add, edit and remove items, check stock in and out, manage categories and users, read the activity log, download the Storage and Monthly reports, and change the safe settings (Settings tab: language, color scheme, hide Admin, inactivity timeout, low stock threshold). Changes appear on the tablet straight away and are logged under Admin. The language follows the app.
+  - **Sign-in:** only the Admin, with the Admin password. While that password is off, the page asks to turn it on in the app and nobody can sign in. Changing or removing the password signs everyone out. Five wrong passwords lock the sign-in for 5 minutes, and a session ends after 30 idle minutes.
+  - **Keep in mind:** the connection is plain HTTP and not encrypted, so use it only on a trusted network, not guest Wi-Fi. Only addresses on the local network are answered. The tablet must stay on and connected, so keep it plugged in. The server keeps running with the app closed (with a permanent notification) and comes back after a restart. Give the tablet a fixed address in the router so that the page address stays the same. Reset app configuration switches the server off, and then it must be switched on again on the tablet. Changing the Admin password, switching the web server off, reset, clearing the stock database or the log, hidden themes, the monthly Drive upload, all backup settings, restoring a backup and connecting Google Drive stay on the tablet only, and the server has no calls for them.
 - **Users:** no sign-in. Tap your name on the start screen to open your menu. Tapping the box icon at the top left of the main screen goes back to the start screen. The Admin adds and removes users on the **Users** tab.
 - **Dashboard → Recent activity:** tapping an entry opens that item with the Check out window. An item with no stock opens without the window, and entries of removed items do nothing.
 - **Items, check in / out, activity log, low stock alerts, Excel report:** as before. Regular users can view items and check stock in and out. **Only the Admin can add, edit or remove items.**
@@ -47,7 +53,7 @@ Open with a press and hold of 3 seconds on the **DentTrack** title, then enter t
 - **Backup file = report file.** A backup is exactly the Excel file from *Reports → Export to Excel* (that button is shown to regular users; the Admin uses the Backup tab), saved under the same name, `DentTrack_Backup_yyyy-MM-dd_HHmm.xlsx` (sheets: Summary, Stock, Low stock, Activity log, Users, Categories). Restoring reads that same file, so a report exported by hand can be restored too. Restore replaces all items and the activity log; users in the file are added, existing users stay; settings and the Admin password are not in the file.
 - **Hide Admin user (Settings):** switch on = the Admin is only reachable with the 3-second hold; switch off = an “Admin” card appears on the user selection screen (tapping it still asks for the password).
 - **Monthly Report (Reports tab, Admin only):** an Excel file for a chosen year with one sheet per item category (plus an Overview sheet). Every item has three rows, Check in / Check out / Left (stock at the end of the month), with 12 month columns and a Total column. Initial stock (an item added or imported with a quantity) counts as the starting balance, not as a check in. In front of those are two review sheets with charts, counted in units checked out: the month (a pie chart by category and the Top 10 items) and *Year yyyy* (categories by month with a stacked chart, the year's share by category and the Top 10 items). Each item's three rows have a line above them and every second item has a light background. Export it on request, or switch on *Save to Google Drive on the 1st of every month* (folder “DentTrack Monthly Reports”; needs Google Drive connected on the Backup tab; if the tablet is off on the 1st, it is saved the next day it is on and online). On Jan 1 it reports the year that just ended.
-- **Settings (Admin)** has three groups: *Admin & user settings* (hide Admin user, Admin password, inactivity timeout), *Stock management* (low stock threshold) and, at the bottom, *Reset and clear* (reset app configuration, clear stock database).
+- **Settings (Admin)** has four groups: *Admin & user settings* (hide Admin user, Admin password, inactivity timeout), *Stock management* (low stock threshold), *Web access* (web server) and, at the bottom, *Reset and clear* (reset app configuration, clear stock database).
 - **Clear stock database (Settings):** after typing DELETE, removes all items and categories, optionally also the activity log. Users, settings and the Admin password stay. Only a backup can bring the stock back.
 - **Admin password (Settings):** *Change password* or *Remove password*; both need the current password. Once removed, the card offers *Set password*.
 - **Reset app configuration (Settings):** puts the settings and backup options back to their defaults (automatic backups and the monthly Drive upload off, backup folder and Drive connection forgotten). Stock, the log, users, categories and the Admin password stay.
@@ -92,9 +98,14 @@ app/src/main/java/com/stocktrack/app/
   data/StockImport.kt      import items from a CSV stock list
   data/DriveBackup.kt      Google Drive upload
   data/Language.kt         the language chosen in Settings
+  data/StockActions.kt     stock changes shared by the screens and the web page
+  web/HttpServer.kt        small HTTP server        web/WebApi.kt   web page sign-in and calls
+  web/AppWebBackend.kt     web page link to the data   web/WebServerService.kt   keeps it running
   ui/MarbleBackground.kt  animated start-screen background
   ui/                      screens: UserSelect, Main, Dashboard, Items, Activity, Reports,
                            Users, Settings, Backup, Info, Admin sign-in dialog, shared theme/components
 ```
+
+The web page itself is in `app/src/main/assets/web/`.
 
 The Kotlin package is still `com.stocktrack.app` (renaming a package is an Android Studio refactor and would reset existing app data); everything visible to people says DentTrack.

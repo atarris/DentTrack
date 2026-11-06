@@ -51,25 +51,37 @@ fun DashboardScreen(
     onOpenItem: (Long) -> Unit,
     onCheckOutItem: (Long) -> Unit
 ) {
-    val alerts = stock.filter { it.isLow(threshold) }.sortedBy { it.quantity }
+    val alerts = remember(stock, threshold) { stock.filter { it.isLow(threshold) }.sortedBy { it.quantity } }
     val lowCount = alerts.size
     val existingIds = remember(stock) { stock.map { it.id }.toHashSet() }
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard(stringResource(R.string.tab_items),"${stock.size}", Icons.Default.Inventory2, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-            StatCard(
-                stringResource(R.string.units_in_stock), "%,d".format(stock.sumOf { it.quantity.toLong() }),
-                Icons.Default.Layers, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
-            )
-            StatCard(
-                stringResource(R.string.low_stock_alerts), "$lowCount",
-                Icons.Default.NotificationsActive, if (lowCount > 0) Red else Green, Modifier.weight(1f)
-            )
-            StatCard(
-                stringResource(R.string.stock_value), formatMoney(stock.sumOf { it.stockValue() }),
-                Icons.Default.Payments, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
-            )
+        val cards: List<@Composable (Modifier) -> Unit> = listOf(
+            { m -> StatCard(stringResource(R.string.tab_items), "${stock.size}", Icons.Default.Inventory2, MaterialTheme.colorScheme.onSurface, m) },
+            { m ->
+                StatCard(
+                    stringResource(R.string.units_in_stock), "%,d".format(stock.sumOf { it.quantity.toLong() }),
+                    Icons.Default.Layers, MaterialTheme.colorScheme.onSurface, m
+                )
+            },
+            { m ->
+                StatCard(
+                    stringResource(R.string.low_stock_alerts), "$lowCount",
+                    Icons.Default.NotificationsActive, if (lowCount > 0) Red else Green, m
+                )
+            },
+            { m ->
+                StatCard(
+                    stringResource(R.string.stock_value), formatMoney(stock.sumOf { it.stockValue() }),
+                    Icons.Default.Payments, MaterialTheme.colorScheme.onSurface, m
+                )
+            }
+        )
+        // Upright, four cards in a row leave room for only two digits: two rows of two instead.
+        cards.chunked(if (isPortrait()) 2 else 4).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                row.forEach { card -> card(Modifier.weight(1f)) }
+            }
         }
 
         Row(

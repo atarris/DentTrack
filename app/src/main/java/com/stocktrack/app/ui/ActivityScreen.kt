@@ -87,30 +87,57 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
     val matches = filtered.size
     val shown = filtered.take(MAX_GUI_LOG_ROWS) // newest first; the app shows the latest 100
 
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text(stringResource(R.string.search_log)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f)
-            )
-            LogFilter.entries.forEach { f ->
-                FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(stringResource(f.label)) })
+    // Upright there is no room for the Note column, and the other columns share the width differently.
+    val portrait = isPortrait()
+    val wTime = if (portrait) 1.2f else W_TIME
+    val wAction = if (portrait) 1.5f else W_ACTION
+    val wChange = if (portrait) 0.8f else W_CHANGE
+
+    val searchField: @Composable (Modifier) -> Unit = { modifier ->
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text(stringResource(R.string.search_log), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            modifier = modifier
+        )
+    }
+    val filterChips: @Composable () -> Unit = {
+        LogFilter.entries.forEach { f ->
+            FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(stringResource(f.label), maxLines = 1) })
+        }
+    }
+    val clearButton: @Composable () -> Unit = {
+        if (isAdmin) {
+            OutlinedButton(
+                onClick = { confirmClear = true },
+                enabled = log.isNotEmpty(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+            ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(R.string.clear_log), maxLines = 1)
             }
-            if (isAdmin) {
-                OutlinedButton(
-                    onClick = { confirmClear = true },
-                    enabled = log.isNotEmpty(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
-                ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.clear_log), maxLines = 1)
-                }
+        }
+    }
+
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (portrait) {
+            // Two rows: on one, the chips and the button would squeeze the search field to almost nothing.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                searchField(Modifier.weight(1f))
+                clearButton()
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                filterChips()
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                searchField(Modifier.weight(1f))
+                filterChips()
+                clearButton()
             }
         }
 
@@ -121,13 +148,13 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
-                HeaderCell(stringResource(R.string.col_date_time), W_TIME)
+                HeaderCell(stringResource(R.string.col_date_time), wTime)
                 HeaderCell(stringResource(R.string.col_user), W_USER)
-                HeaderCell(stringResource(R.string.col_action), W_ACTION)
+                HeaderCell(stringResource(R.string.col_action), wAction)
                 HeaderCell(stringResource(R.string.col_item), W_ITEM)
-                HeaderCell(stringResource(R.string.col_change), W_CHANGE, TextAlign.End)
+                HeaderCell(stringResource(R.string.col_change), wChange, TextAlign.End)
                 HeaderCell(stringResource(R.string.col_qty_after), W_AFTER, TextAlign.End)
-                HeaderCell(stringResource(R.string.col_note), W_NOTE)
+                if (!portrait) HeaderCell(stringResource(R.string.col_note), W_NOTE)
             }
             if (matches > shown.size) {
                 Text(
@@ -152,16 +179,16 @@ fun ActivityScreen(log: List<LogEntry>, isAdmin: Boolean, onClearLog: () -> Unit
                                 .padding(horizontal = 20.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            BodyCell(formatTime(e.timestamp), W_TIME)
+                            BodyCell(formatTime(e.timestamp), wTime)
                             BodyCell(e.userName, W_USER, bold = true)
-                            Row(Modifier.weight(W_ACTION)) { Pill(actionLabel(e.type), actionColor(e.type)) }
+                            Row(Modifier.weight(wAction)) { Pill(actionLabel(e.type), actionColor(e.type)) }
                             BodyCell(e.itemName, W_ITEM, bold = true)
                             BodyCell(
-                                formatChange(e.change), W_CHANGE, TextAlign.End, bold = true,
+                                formatChange(e.change), wChange, TextAlign.End, bold = true,
                                 color = actionColor(e.type)
                             )
                             BodyCell("${e.quantityAfter}", W_AFTER, TextAlign.End)
-                            BodyCell(e.note.ifBlank { "—" }, W_NOTE)
+                            if (!portrait) BodyCell(e.note.ifBlank { "—" }, W_NOTE)
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }

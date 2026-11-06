@@ -64,6 +64,9 @@ interface StockDao {
     @Query("SELECT * FROM activity_log ORDER BY timestamp DESC, id DESC")
     suspend fun logOnce(): List<LogEntry>
 
+    @Query("SELECT * FROM activity_log ORDER BY timestamp DESC, id DESC LIMIT :limit")
+    suspend fun recentLog(limit: Int): List<LogEntry>
+
     // Categories
     @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE")
     fun categories(): Flow<List<Category>>

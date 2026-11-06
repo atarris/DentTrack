@@ -1,5 +1,6 @@
 package com.stocktrack.app.ui
 
+import android.content.res.Configuration
 import androidx.compose.ui.res.stringResource
 import com.stocktrack.app.R
 import androidx.compose.foundation.BorderStroke
@@ -31,12 +32,18 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,54 +54,151 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stocktrack.app.data.ActionType
 import com.stocktrack.app.data.DEFAULT_UNIT
+import com.stocktrack.app.data.GuiScheme
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** The mint and emerald design tokens. Screens use these (or the colour scheme built from them). */
+/** The colours of one GUI color scheme. [flat] is the clean look of the web page: no shadows or background waves. */
+class Palette(
+    val primary: Color,
+    val primaryDark: Color,
+    val mint: Color,
+    val mintDark: Color,
+    val appBackground: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val border: Color,
+    val flat: Boolean = false
+)
+
+private val MintPalette = Palette(
+    primary = Color(0xFF087F5B),
+    primaryDark = Color(0xFF075C46),
+    mint = Color(0xFFDDF5E9),
+    mintDark = Color(0xFFBDEBD6),
+    appBackground = Color(0xFFF8FBF9),
+    textPrimary = Color(0xFF17352E),
+    textSecondary = Color(0xFF71817C),
+    border = Color(0xFFE2EAE5)
+)
+
+private val BluePalette = Palette(
+    primary = Color(0xFF1565C0),
+    primaryDark = Color(0xFF0D47A1),
+    mint = Color(0xFFE8F1FB),
+    mintDark = Color(0xFFCFE0F5),
+    appBackground = Color(0xFFF7FAFD),
+    textPrimary = Color(0xFF12263F),
+    textSecondary = Color(0xFF5A6B80),
+    border = Color(0xFFDFE8F2),
+    flat = true
+)
+
+private val VioletPalette = Palette(
+    primary = Color(0xFF6A1B9A),
+    primaryDark = Color(0xFF4A148C),
+    mint = Color(0xFFF3E5F5),
+    mintDark = Color(0xFFE1BEE7),
+    appBackground = Color(0xFFFCF8FD),
+    textPrimary = Color(0xFF2E1238),
+    textSecondary = Color(0xFF7A5F85),
+    border = Color(0xFFEEDFF1)
+)
+
+private val PinkPalette = Palette(
+    primary = Color(0xFFC2185B),
+    primaryDark = Color(0xFF880E4F),
+    mint = Color(0xFFFCE4EC),
+    mintDark = Color(0xFFF8BBD0),
+    appBackground = Color(0xFFFFF9FB),
+    textPrimary = Color(0xFF3A1226),
+    textSecondary = Color(0xFF8A6073),
+    border = Color(0xFFF7E1E9)
+)
+
+private val AmberPalette = Palette(
+    primary = Color(0xFFB45F06),
+    primaryDark = Color(0xFF7A3F00),
+    mint = Color(0xFFFBEFD9),
+    mintDark = Color(0xFFF3D9A8),
+    appBackground = Color(0xFFFFFBF4),
+    textPrimary = Color(0xFF3B2A14),
+    textSecondary = Color(0xFF7C6A52),
+    border = Color(0xFFEFE3CF)
+)
+
+/** The only two-tone scheme: lagoon-teal buttons and text on warm coral highlights and a sandy background. */
+private val LagoonPalette = Palette(
+    primary = Color(0xFF007C89),
+    primaryDark = Color(0xFF00505A),
+    mint = Color(0xFFFFE6DC),
+    mintDark = Color(0xFFFFC9B3),
+    appBackground = Color(0xFFFFFAF5),
+    textPrimary = Color(0xFF0E2F36),
+    textSecondary = Color(0xFF5E7377),
+    border = Color(0xFFF4E4DA)
+)
+
+/** The main color of a scheme as "#rrggbb", for the web page. */
+fun schemeColorHex(scheme: GuiScheme): String = "#%06x".format(paletteOf(scheme).primary.toArgb() and 0xFFFFFF)
+
+private fun paletteOf(scheme: GuiScheme): Palette = when (scheme) {
+    GuiScheme.MINT -> MintPalette
+    GuiScheme.BLUE -> BluePalette
+    GuiScheme.AMBER -> AmberPalette
+    GuiScheme.VIOLET -> VioletPalette
+    GuiScheme.PINK -> PinkPalette
+    GuiScheme.LAGOON -> LagoonPalette
+}
+
+/** The design tokens of the chosen scheme. Screens use these (or the colour scheme built from them). */
 object DentTrackColors {
-    val Primary = Color(0xFF087F5B)
-    val PrimaryDark = Color(0xFF075C46)
-    val Mint = Color(0xFFDDF5E9)
-    val MintDark = Color(0xFFBDEBD6)
-    val AppBackground = Color(0xFFF8FBF9)
+    /** Held as state, so everything that reads a token redraws when the scheme changes. */
+    var palette by mutableStateOf(MintPalette)
+
+    val Primary get() = palette.primary
+    val PrimaryDark get() = palette.primaryDark
+    val Mint get() = palette.mint
+    val MintDark get() = palette.mintDark
+    val AppBackground get() = palette.appBackground
     val Surface = Color(0xFFFFFFFF)
-    val TextPrimary = Color(0xFF17352E)
-    val TextSecondary = Color(0xFF71817C)
-    val Border = Color(0xFFE2EAE5)
+    val TextPrimary get() = palette.textPrimary
+    val TextSecondary get() = palette.textSecondary
+    val Border get() = palette.border
     val Error = Color(0xFFB42318)
 }
 
 val Green = Color(0xFF2E7D32)
 val Orange = Color(0xFFE65100)
 val Red = DentTrackColors.Error
-val Accent = DentTrackColors.Primary
+val Accent get() = DentTrackColors.Primary
 val Grey = Color(0xFF5B6B8C)
 
-private val LightColors = lightColorScheme(
-    primary = DentTrackColors.Primary,
+private fun colorSchemeOf(palette: Palette) = lightColorScheme(
+    primary = palette.primary,
     onPrimary = Color.White,
-    primaryContainer = DentTrackColors.Mint,
-    onPrimaryContainer = DentTrackColors.PrimaryDark,
-    secondary = DentTrackColors.PrimaryDark,
-    secondaryContainer = DentTrackColors.Mint,
-    onSecondaryContainer = DentTrackColors.PrimaryDark,
-    background = DentTrackColors.AppBackground,
-    onBackground = DentTrackColors.TextPrimary,
+    primaryContainer = palette.mint,
+    onPrimaryContainer = palette.primaryDark,
+    secondary = palette.primaryDark,
+    secondaryContainer = palette.mint,
+    onSecondaryContainer = palette.primaryDark,
+    background = palette.appBackground,
+    onBackground = palette.textPrimary,
     surface = DentTrackColors.Surface,
-    onSurface = DentTrackColors.TextPrimary,
+    onSurface = palette.textPrimary,
     // Without these, dialogs and menus take a lavender tint from the Material default palette.
     surfaceContainerLowest = DentTrackColors.Surface,
     surfaceContainerLow = DentTrackColors.Surface,
     surfaceContainer = DentTrackColors.Surface,
     surfaceContainerHigh = DentTrackColors.Surface,
-    surfaceContainerHighest = DentTrackColors.AppBackground,
-    surfaceTint = DentTrackColors.Mint,
-    surfaceVariant = DentTrackColors.Mint,
-    onSurfaceVariant = DentTrackColors.TextSecondary,
-    outline = DentTrackColors.TextSecondary,
-    outlineVariant = DentTrackColors.Border,
+    surfaceContainerHighest = palette.appBackground,
+    surfaceTint = palette.mint,
+    surfaceVariant = palette.mint,
+    onSurfaceVariant = palette.textSecondary,
+    outline = palette.textSecondary,
+    outlineVariant = palette.border,
     error = DentTrackColors.Error
 )
 
@@ -133,8 +237,14 @@ private val SoftShapes = Shapes(
 )
 
 @Composable
-fun DentTrackTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = LightColors, typography = LargeTypography, shapes = SoftShapes, content = content)
+fun DentTrackTheme(scheme: GuiScheme, content: @Composable () -> Unit) {
+    // Set here, before the screens below are composed, so they never draw a frame in the old colours.
+    val colors = remember(scheme) {
+        val palette = paletteOf(scheme)
+        DentTrackColors.palette = palette
+        colorSchemeOf(palette)
+    }
+    MaterialTheme(colorScheme = colors, typography = LargeTypography, shapes = SoftShapes, content = content)
 }
 
 /** White rounded card used for every block on screen. */
@@ -144,8 +254,8 @@ fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> 
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, DentTrackColors.Border),
-        shadowElevation = 2.dp
+        border = BorderStroke(if (DentTrackColors.palette.flat) 2.dp else 1.dp, DentTrackColors.Border),
+        shadowElevation = if (DentTrackColors.palette.flat) 0.dp else 2.dp
     ) {
         Column(content = content)
     }
@@ -324,3 +434,7 @@ fun formatChange(change: Int): String = when {
     change < 0 -> "$change"
     else -> "—"
 }
+
+/** True while the tablet is turned upright: the wide tables leave out a column then. */
+@Composable
+fun isPortrait(): Boolean = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT

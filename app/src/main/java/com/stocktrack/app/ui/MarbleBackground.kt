@@ -9,6 +9,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +26,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-private val VeinGreen = DentTrackColors.Primary     // used at very low opacity
+private val VeinGreen get() = DentTrackColors.Primary     // used at very low opacity
 
 /**
  * Background for the start screen: near-white with soft mint waves in the upper-left and lower-right
@@ -37,6 +38,12 @@ fun MarbleBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // The Blue scheme has a plain background, like the web page.
+    if (DentTrackColors.palette.flat) {
+        Box(modifier.background(DentTrackColors.AppBackground), contentAlignment = Alignment.Center, content = content)
+        return
+    }
+
     val transition = rememberInfiniteTransition(label = "marble")
 
     // 0..1 sweep of the shine, once per cycle, then a pause before the next one.

@@ -93,6 +93,7 @@ fun ReportsScreen(
     val lowItems = remember(stock, threshold) { stock.filter { it.isLow(threshold) || it.isOut() }.sortedBy { it.quantity } }
 
     val exportStorage = { exportLauncher.launch(BackupRunner.fileName()) }
+    val portrait = isPortrait() // no room for the Value column when upright
 
     // The whole screen scrolls, so the report card never squeezes the two lists on a short screen.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -127,7 +128,7 @@ fun ReportsScreen(
                         Text(stringResource(R.string.col_category), Modifier.weight(2f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(stringResource(R.string.col_items), Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(stringResource(R.string.col_units), Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(stringResource(R.string.col_value), Modifier.weight(1.3f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!portrait) Text(stringResource(R.string.col_value), Modifier.weight(1.3f), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     LazyColumn(Modifier.weight(1f)) {
@@ -142,7 +143,7 @@ fun ReportsScreen(
                                 )
                                 Text("${c.items}", Modifier.weight(1f), textAlign = TextAlign.End)
                                 Text("%,d".format(c.units), Modifier.weight(1f), textAlign = TextAlign.End)
-                                Text(formatMoney(c.value), Modifier.weight(1.3f), textAlign = TextAlign.End)
+                                if (!portrait) Text(formatMoney(c.value), Modifier.weight(1.3f), textAlign = TextAlign.End)
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }

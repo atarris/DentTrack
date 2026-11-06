@@ -15,14 +15,17 @@ android {
         applicationId = "com.stocktrack.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
-        versionName = "4.1"
+        versionCode = 7
+        versionName = "4.2"
         buildConfigField("String", "BUILD_DATE", "\"${LocalDate.now()}\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Compose runs far slower in a debug build. Same key as debug, so it installs over it and keeps the data.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -53,6 +56,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Android has this built in; the unit tests of the web page run without Android.
+    testImplementation("org.json:json:20240303")
 
     // Local database
     implementation("androidx.room:room-runtime:2.6.1")

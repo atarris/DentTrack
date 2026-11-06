@@ -4,8 +4,12 @@ package com.stocktrack.app.ui
 
 import androidx.compose.ui.res.stringResource
 import com.stocktrack.app.R
-import android.app.Activity
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,18 +24,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Switch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,14 +51,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.stocktrack.app.StockViewModel
 import com.stocktrack.app.data.AppConfig
+import com.stocktrack.app.data.GuiScheme
 import com.stocktrack.app.data.Language
+import com.stocktrack.app.data.Season
+import com.stocktrack.app.data.activeScheme
+import com.stocktrack.app.web.WebServerService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
- * Admin only. Three groups: "Admin & user settings" (Admin visibility, password, inactivity timeout),
- * "Stock management" (low stock threshold) and "Reset and clear". Categories are managed under Items,
- * import under Backup.
+ * Admin only. Four groups: "Admin & user settings" (Admin visibility, password, inactivity timeout),
+ * "Stock management" (low stock threshold), "Web access" and "Reset and clear". Categories are managed
+ * under Items, import under Backup.
  */
 @Composable
 fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
@@ -61,6 +78,7 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         LanguageCard(vm, config)
+        GuiSchemeCard(vm, config)
 
         // ---- Admin & user settings: who can sign in and how
         SectionTitle(stringResource(R.string.section_admin_users))
@@ -72,6 +90,10 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
         SectionTitle(stringResource(R.string.section_stock))
         LowStockCard(vm, config)
 
+        // ---- Web access: the Admin web page
+        SectionTitle(stringResource(R.string.section_web))
+        WebServerCard(vm, config)
+
         // ---- Reset and clear: the actions that undo things, kept apart at the bottom
         SectionTitle(stringResource(R.string.section_reset))
         ResetConfigCard(vm)
@@ -81,10 +103,15 @@ fun SettingsScreen(vm: StockViewModel, config: AppConfig) {
 }
 
 @Composable
-private fun SettingsPanel(title: String, description: String, content: @Composable () -> Unit) {
+private fun SettingsPanel(
+    title: String,
+    description: String,
+    titleModifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
     Panel(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = titleModifier)
             Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             content()
         }
@@ -370,8 +397,142 @@ private fun AdminVisibilityCard(vm: StockViewModel, config: AppConfig) {
 }
 
 @Composable
+private fun WebServerCard(vm: StockViewModel, config: AppConfig) {
+    val status by WebServerService.status.collectAsState()
+    var addresses by remember { mutableStateOf(emptyList<String>()) }
+    // Without this permission the server still runs, only its notification stays hidden.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // The tablet's address changes when it moves to another network.
+    LaunchedEffect(status.running) {
+        while (status.running) {
+            addresses = withContext(Dispatchers.IO) { WebServerService.addresses() }
+            delay(5_000)
+        }
+    }
+
+    SettingsPanel(
+        title = stringResource(R.string.web_server_title),
+        description = stringResource(R.string.web_server_text)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Switch(
+                checked = config.webServerEnabled,
+                onCheckedChange = { on ->
+                    if (on && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    vm.setWebServer(on)
+                }
+            )
+            Text(
+                if (config.webServerEnabled) stringResource(R.string.web_server_on) else stringResource(R.string.web_server_off),
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        status.error?.let { Text(stringResource(R.string.web_server_error, it), color = Red) }
+        if (status.running) {
+            if (addresses.isEmpty()) {
+                Text(stringResource(R.string.web_server_no_network), color = Red)
+            } else {
+                Text(stringResource(R.string.web_server_open_at))
+                addresses.forEach { Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            }
+            Text(stringResource(R.string.web_server_security), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (config.webServerEnabled && !config.adminPasswordSet) {
+            Text(stringResource(R.string.web_server_password_needed), color = Red, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun GuiSchemeCard(vm: StockViewModel, config: AppConfig) {
+    var preview by remember { mutableStateOf<Season?>(null) }
+    // The secret themes menu opens with a 3-second hold on the title, and closes again on leaving the tab.
+    var secretMenu by remember { mutableStateOf(false) }
+
+    SettingsPanel(
+        title = stringResource(R.string.gui_scheme_title),
+        description = stringResource(R.string.gui_scheme_text),
+        titleModifier = Modifier.holdToTrigger(3_000L) { secretMenu = !secretMenu }
+    ) {
+        GuiSchemeChips(vm, config)
+        if (secretMenu) {
+            HorizontalDivider(color = DentTrackColors.Border)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(checked = config.hiddenThemes, onCheckedChange = { vm.setHiddenThemes(it) })
+                Text(
+                    if (config.hiddenThemes) stringResource(R.string.hidden_themes_on) else stringResource(R.string.hidden_themes_off),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(stringResource(R.string.hidden_themes_text), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.hidden_themes_preview), fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Season.entries.forEach { season ->
+                    AssistChip(
+                        onClick = { preview = season },
+                        label = { Text(season.label, maxLines = 1, softWrap = false) }
+                    )
+                }
+            }
+        }
+    }
+
+    preview?.let { season ->
+        SeasonPreviewDialog(vm, season, onClose = { preview = null })
+    }
+}
+
+/** The scheme choice, for the whole app. Settings (Admin) and Info (everyone) both show it. */
+@Composable
+fun GuiSchemeChips(vm: StockViewModel, config: AppConfig) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        GuiScheme.entries.forEach { scheme ->
+            FilterChip(
+                selected = !config.randomScheme && config.guiScheme == scheme,
+                onClick = { vm.setGuiScheme(scheme) },
+                label = { Text(stringResource(scheme.label), maxLines = 1, softWrap = false) }
+            )
+        }
+        FilterChip(
+            selected = config.randomScheme,
+            onClick = { vm.setRandomScheme(!config.randomScheme) },
+            label = { Text(stringResource(R.string.scheme_random), maxLines = 1, softWrap = false) }
+        )
+    }
+    if (config.randomScheme) {
+        Text(
+            stringResource(R.string.scheme_today, stringResource(config.activeScheme().label)),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Shows the start screen as it will look in [season]. Tapping a name closes it, nobody is signed in. */
+@Composable
+private fun SeasonPreviewDialog(vm: StockViewModel, season: Season, onClose: () -> Unit) {
+    val users by vm.pickableUsers.collectAsState()
+    KeepAwakeWhileShown()
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            WelcomeScreen(season, users.orEmpty(), onAdminTrigger = {}, onPick = { onClose() })
+            Button(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) { Text(stringResource(R.string.preview_close)) }
+        }
+    }
+}
+
+@Composable
 private fun LanguageCard(vm: StockViewModel, config: AppConfig) {
-    val context = LocalContext.current
     SettingsPanel(
         title = stringResource(R.string.language_title),
         description = stringResource(R.string.language_text)
@@ -382,10 +543,7 @@ private fun LanguageCard(vm: StockViewModel, config: AppConfig) {
                 FilterChip(
                     selected = config.language == code,
                     onClick = {
-                        if (config.language != code) {
-                            vm.setLanguage(code)
-                            (context as? Activity)?.recreate()
-                        }
+                        if (config.language != code) vm.setLanguage(code)
                     },
                     label = { Text(label, maxLines = 1, softWrap = false) }
                 )

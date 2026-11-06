@@ -7,6 +7,7 @@ import com.stocktrack.app.R
 import android.content.Intent
 import androidx.annotation.StringRes
 import android.os.SystemClock
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,7 +58,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -93,7 +97,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
     var startCheckOut by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val lowCount = items.count { it.isLow(threshold) }
+    val lowCount = remember(items, threshold) { items.count { it.isLow(threshold) } }
 
     // Users, Settings and Backup exist for the Admin only.
     val visibleTabs = Tab.entries.filter { !it.adminOnly || isAdmin }
@@ -168,12 +172,12 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                         containerColor = MaterialTheme.colorScheme.surface,
                         header = {
                             // The app icon leads home: back to the user selection screen.
-                            IconButton(onClick = { vm.switchUser() }) {
-                                Icon(
-                                    Icons.Default.Inventory2,
+                            IconButton(onClick = { vm.switchUser() }, modifier = Modifier.size(72.dp)) {
+                                Image(
+                                    bitmap = ImageBitmap.imageResource(R.drawable.logo_menu),
                                     contentDescription = stringResource(R.string.back_to_users),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(32.dp)
+                                    filterQuality = FilterQuality.High,
+                                    modifier = Modifier.size(64.dp)
                                 )
                             }
                         }
@@ -281,7 +285,7 @@ fun MainScreen(vm: StockViewModel, user: User, isAdmin: Boolean, onAdminTrigger:
                                 Tab.Users -> UsersScreen(vm)
                                 Tab.Settings -> SettingsScreen(vm, config)
                                 Tab.Backup -> BackupScreen(vm, config)
-                                Tab.Info -> InfoScreen()
+                                Tab.Info -> InfoScreen(vm, config)
                             }
                         }
                     }

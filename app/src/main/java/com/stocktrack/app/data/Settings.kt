@@ -10,12 +10,44 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.TimeZone
+import kotlin.random.Random
 
 enum class BackupSchedule(@StringRes val label: Int, val days: Long) {
     OFF(R.string.schedule_off, 0),
     DAILY(R.string.schedule_daily, 1),
     WEEKLY(R.string.schedule_weekly, 7),
     MONTHLY(R.string.schedule_monthly, 30)
+}
+
+/** The look of the app's screens (Settings > GUI color scheme). */
+enum class GuiScheme(@StringRes val label: Int) {
+    MINT(R.string.scheme_mint),
+    BLUE(R.string.scheme_blue),
+    AMBER(R.string.scheme_amber),
+    VIOLET(R.string.scheme_violet),
+    PINK(R.string.scheme_pink),
+    LAGOON(R.string.scheme_lagoon);
+
+    companion object {
+        /**
+         * The scheme of a day for "random every day" ([day] counts days). Every scheme comes once in a
+         * shuffled round before any comes again, and the same one never shows two days in a row.
+         */
+        fun ofDay(day: Long): GuiScheme {
+            val size = entries.size.toLong()
+            return round(Math.floorDiv(day, size))[Math.floorMod(day, size).toInt()]
+        }
+
+        private fun shuffled(round: Long) = entries.shuffled(Random(round))
+
+        private fun round(round: Long): List<GuiScheme> {
+            val order = shuffled(round).toMutableList()
+            // Swapping the first two leaves the last in place, which the next round compares with.
+            if (order[0] == shuffled(round - 1).last()) order[0] = order[1].also { order[1] = order[0] }
+            return order
+        }
+    }
 }
 
 /** Everything the Settings and Backup screens show. The admin password is kept out of this class. */
@@ -41,8 +73,19 @@ data class AppConfig(
     /** true = the Admin removed the password, so the Admin menu opens without asking for one. */
     val adminPasswordRemoved: Boolean = false,
     /** Language of the app's screens (see [Language]). Reports and backup files stay in English. */
-    val language: String = Language.ENGLISH
+    val language: String = Language.ENGLISH,
+    /** Run the Admin web page on this tablet (see WebServerService). */
+    val webServerEnabled: Boolean = false,
+    val guiScheme: GuiScheme = GuiScheme.MINT,
+    /** A different scheme every day instead of [guiScheme]. */
+    val randomScheme: Boolean = false,
+    /** The start screen changes by itself on holidays and special days (see [Season]). */
+    val hiddenThemes: Boolean = true
 )
+
+/** The scheme the app is showing at the time [now]. */
+fun AppConfig.activeScheme(now: Long = System.currentTimeMillis()): GuiScheme =
+    if (randomScheme) GuiScheme.ofDay((now + TimeZone.getDefault().getOffset(now)) / 86_400_000L) else guiScheme
 
 /** Small key/value store (SharedPreferences) with a StateFlow so screens update live. */
 class AppSettings(context: Context) {
@@ -80,7 +123,13 @@ class AppSettings(context: Context) {
         lastMonthlyStatus = prefs.getString(K_MONTHLY_STATUS, "") ?: "",
         adminPasswordSet = prefs.contains(K_PW_HASH),
         adminPasswordRemoved = prefs.getBoolean(K_PW_REMOVED, false),
-        language = prefs.getString(Language.PREF_KEY, Language.ENGLISH) ?: Language.ENGLISH
+        language = prefs.getString(Language.PREF_KEY, Language.ENGLISH) ?: Language.ENGLISH,
+        webServerEnabled = prefs.getBoolean(K_WEB_SERVER, false),
+        guiScheme = runCatching {
+            GuiScheme.valueOf(prefs.getString(K_GUI_SCHEME, null) ?: GuiScheme.MINT.name)
+        }.getOrDefault(GuiScheme.MINT),
+        randomScheme = prefs.getBoolean(K_RANDOM_SCHEME, false),
+        hiddenThemes = prefs.getBoolean(K_HIDDEN_THEMES, true)
     )
 
     private fun edit(block: SharedPreferences.Editor.() -> Unit) {
@@ -106,6 +155,18 @@ class AppSettings(context: Context) {
 
     fun setHideAdmin(value: Boolean) = edit { putBoolean(K_HIDE_ADMIN, value) }
 
+    fun setWebServerEnabled(value: Boolean) = edit { putBoolean(K_WEB_SERVER, value) }
+
+    /** Picking a scheme also ends "random every day". */
+    fun setGuiScheme(value: GuiScheme) = edit {
+        putString(K_GUI_SCHEME, value.name)
+        putBoolean(K_RANDOM_SCHEME, false)
+    }
+
+    fun setRandomScheme(value: Boolean) = edit { putBoolean(K_RANDOM_SCHEME, value) }
+
+    fun setHiddenThemes(value: Boolean) = edit { putBoolean(K_HIDDEN_THEMES, value) }
+
     /** Written at once (not in the background), because the screen restarts right after to apply it. */
     fun setLanguage(value: String) {
         prefs.edit().putString(Language.PREF_KEY, value).commit()
@@ -116,7 +177,8 @@ class AppSettings(context: Context) {
     fun resetConfig() = edit {
         listOf(
             K_LOW, K_INACTIVITY, K_SCHEDULE, K_LOCAL, K_DRIVE, K_FOLDER, K_DRIVE_CONNECTED,
-            K_LAST_AT, K_LAST_STATUS, K_HIDE_ADMIN, K_MONTHLY_DRIVE, K_MONTHLY_KEY, K_MONTHLY_AT, K_MONTHLY_STATUS
+            K_LAST_AT, K_LAST_STATUS, K_HIDE_ADMIN, K_MONTHLY_DRIVE, K_MONTHLY_KEY, K_MONTHLY_AT, K_MONTHLY_STATUS,
+            K_WEB_SERVER, K_GUI_SCHEME, K_RANDOM_SCHEME, K_HIDDEN_THEMES
         ).forEach { remove(it) }
     }
 
@@ -183,6 +245,9 @@ class AppSettings(context: Context) {
         )
     }
 
+    /** Changes whenever the password is changed or removed, which ends web page sign-ins made with the old one. */
+    fun adminPasswordStamp(): String? = prefs.getString(K_PW_HASH, null)
+
     private fun hash(salt: String, password: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
         return Base64.encodeToString(
@@ -209,6 +274,10 @@ class AppSettings(context: Context) {
         private const val K_MONTHLY_KEY = "monthly_key"
         private const val K_MONTHLY_AT = "monthly_at"
         private const val K_MONTHLY_STATUS = "monthly_status"
+        private const val K_WEB_SERVER = "web_server"
+        private const val K_GUI_SCHEME = "gui_scheme"
+        private const val K_RANDOM_SCHEME = "random_scheme"
+        private const val K_HIDDEN_THEMES = "hidden_themes"
         private const val K_PW_SALT = "admin_pw_salt"
         private const val K_PW_HASH = "admin_pw_hash"
         private const val K_PW_REMOVED = "admin_pw_removed"

@@ -3,7 +3,11 @@ package com.stocktrack.app.ui
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -35,13 +39,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,9 +66,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stocktrack.app.R
 import com.stocktrack.app.StockViewModel
+import com.stocktrack.app.data.Season
 import com.stocktrack.app.data.User
 import com.stocktrack.app.data.isAdminAccount
 import kotlinx.coroutines.delay
+import java.util.Calendar
 
 private const val LOGO_ASPECT = 1200f / 165f
 
@@ -76,6 +86,10 @@ private const val CARD_PADDING_V = 16f
 private const val NAME_GAP = 8f
 private const val NAME_LINE = 38f
 private const val FULL_AVATAR = 96f
+private const val HEADER_PLATE_PADDING_V = 8f
+private const val GREETING_PADDING_V = 8f
+private const val GREETING_TITLE_LINE = 34f
+private const val GREETING_SUBTITLE_LINE = 23f
 
 /** Logo height plus the name's line height, per dp of logo width. */
 private const val HEADER_PER_LOGO_WIDTH = 1f / LOGO_ASPECT + 0.258f * TITLE_PER_LOGO_WIDTH
@@ -87,12 +101,82 @@ private const val HEADER_PER_LOGO_WIDTH = 1f / LOGO_ASPECT + 0.258f * TITLE_PER_
  */
 @Composable
 fun UserSelectScreen(vm: StockViewModel, users: List<User>, onAdminTrigger: () -> Unit) {
-    MarbleBackground(Modifier.fillMaxSize()) {
-        UserMenuGrid(
-            users = users,
-            onAdminTrigger = onAdminTrigger,
-            onPick = { user -> if (user.isAdminAccount()) onAdminTrigger() else vm.selectUser(user.id) }
-        )
+    val config by vm.config.collectAsState()
+    // Looked at every minute, because the tablet can stay on this screen past midnight.
+    var todaysSeason by remember { mutableStateOf(Season.today()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            todaysSeason = Season.today()
+        }
+    }
+    WelcomeScreen(
+        season = if (config.hiddenThemes) todaysSeason else null,
+        users = users,
+        onAdminTrigger = onAdminTrigger,
+        onPick = { user -> if (user.isAdminAccount()) onAdminTrigger() else vm.selectUser(user.id) }
+    )
+}
+
+/** The start screen itself, with the hidden theme of [season] if there is one. Settings previews it too. */
+@Composable
+fun WelcomeScreen(season: Season?, users: List<User>, onAdminTrigger: () -> Unit, onPick: (User) -> Unit) {
+    if (season == null) {
+        MarbleBackground(Modifier.fillMaxSize()) {
+            UserMenuGrid(null, users, onAdminTrigger, onPick)
+        }
+    } else {
+        SeasonBackground(season, Modifier.fillMaxSize()) {
+            UserMenuGrid(season, users, onAdminTrigger, onPick)
+        }
+    }
+}
+
+/** The greeting of a hidden theme. It has a fixed height, included in the start screen's measurements. */
+@Composable
+private fun SeasonGreeting(season: Season) {
+    val pulse by rememberInfiniteTransition(label = "greeting").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.035f,
+        animationSpec = infiniteRepeatable(tween(1_100), RepeatMode.Reverse),
+        label = "pulse"
+    )
+    val today = remember { Calendar.getInstance() }
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = seasonAccent(season),
+        border = BorderStroke(2.dp, Color.White),
+        shadowElevation = 6.dp,
+        modifier = Modifier
+            .widthIn(max = 780.dp)
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pulse
+                scaleY = pulse
+            }
+    ) {
+        Column(
+            Modifier.padding(vertical = GREETING_PADDING_V.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "${season.emoji} ${season.title} ${season.emoji}",
+                color = Color.White,
+                fontSize = 27.sp,
+                lineHeight = GREETING_TITLE_LINE.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                season.subtitle(today.get(Calendar.YEAR), today.get(Calendar.MONTH) + 1),
+                color = Color.White,
+                fontSize = 17.sp,
+                lineHeight = GREETING_SUBTITLE_LINE.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -102,7 +186,7 @@ fun UserSelectScreen(vm: StockViewModel, users: List<User>, onAdminTrigger: () -
  * screen height needs. Three or more rows keep the full size and scroll.
  */
 @Composable
-private fun UserMenuGrid(users: List<User>, onAdminTrigger: () -> Unit, onPick: (User) -> Unit) {
+private fun UserMenuGrid(season: Season?, users: List<User>, onAdminTrigger: () -> Unit, onPick: (User) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns = when {
             maxWidth >= 840.dp -> 3
@@ -116,8 +200,11 @@ private fun UserMenuGrid(users: List<User>, onAdminTrigger: () -> Unit, onPick: 
 
         // Heights in dp: first what cannot shrink, then what can. Text grows with the tablet's font size setting.
         val fontScale = LocalDensity.current.fontScale
+        val seasonHeight = if (season == null) 0f else {
+            2 * HEADER_PLATE_PADDING_V + gap.value + 2 * GREETING_PADDING_V + (GREETING_TITLE_LINE + GREETING_SUBTITLE_LINE) * fontScale
+        }
         val fixedHeight = 2 * SCREEN_PADDING_V + TITLE_GAP + SUBTITLE_LINE * fontScale + HEADER_BOTTOM + gap.value * rows +
-            rows * (2 * CARD_PADDING_V + NAME_GAP + NAME_LINE * fontScale)
+            rows * (2 * CARD_PADDING_V + NAME_GAP + NAME_LINE * fontScale) + seasonHeight
         val fullLogo = minOf(contentWidth, 460.dp)
         val scalableHeight = fullLogo.value * HEADER_PER_LOGO_WIDTH + rows * FULL_AVATAR
         val scale = if (rows > 2) 1f else ((maxHeight.value - fixedHeight) / scalableHeight).coerceIn(0.5f, 1f)
@@ -130,12 +217,26 @@ private fun UserMenuGrid(users: List<User>, onAdminTrigger: () -> Unit, onPick: 
             verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            DentTrackHeader(fullLogo * scale, onAdminTrigger)
+            if (season == null) {
+                DentTrackHeader(fullLogo * scale, onAdminTrigger)
+            } else {
+                // A white plate keeps the logo and the name readable on the darker pictures.
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White.copy(alpha = 0.93f),
+                    modifier = Modifier.widthIn(max = 780.dp)
+                ) {
+                    Box(Modifier.padding(horizontal = 24.dp, vertical = HEADER_PLATE_PADDING_V.dp)) {
+                        DentTrackHeader(fullLogo * scale, onAdminTrigger)
+                    }
+                }
+                SeasonGreeting(season)
+            }
             if (users.isEmpty()) {
                 Text(
                     stringResource(R.string.no_users),
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (season == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.White
                 )
             }
             users.chunked(columns).forEachIndexed { row, rowUsers ->
@@ -213,6 +314,7 @@ private fun DentTrackHeader(logoWidth: Dp, onAdminTrigger: () -> Unit) {
 @Composable
 private fun UserMenuCard(user: User, index: Int, avatarSize: Dp, modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(24.dp)
+    val flat = DentTrackColors.palette.flat
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "press")
@@ -229,10 +331,11 @@ private fun UserMenuCard(user: User, index: Int, avatarSize: Dp, modifier: Modif
         interactionSource = interaction,
         shape = shape,
         color = DentTrackColors.Surface,
-        border = BorderStroke(
-            3.dp,
-            Brush.linearGradient(listOf(DentTrackColors.Primary, DentTrackColors.MintDark))
-        ),
+        border = if (flat) {
+            BorderStroke(2.dp, DentTrackColors.Border)
+        } else {
+            BorderStroke(3.dp, Brush.linearGradient(listOf(DentTrackColors.Primary, DentTrackColors.MintDark)))
+        },
         modifier = modifier
             .graphicsLayer {
                 val scale = pressScale * (0.94f + 0.06f * entrance.value)
@@ -241,7 +344,7 @@ private fun UserMenuCard(user: User, index: Int, avatarSize: Dp, modifier: Modif
                 alpha = entrance.value
                 translationY = (1f - entrance.value) * 28.dp.toPx()
             }
-            .shadow(10.dp, shape, spotColor = DentTrackColors.Primary, ambientColor = DentTrackColors.Primary)
+            .shadow(if (flat) 0.dp else 10.dp, shape, spotColor = DentTrackColors.Primary, ambientColor = DentTrackColors.Primary)
     ) {
         Box(Modifier.fillMaxWidth()) {
             Column(

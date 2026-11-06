@@ -29,10 +29,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stocktrack.app.BuildConfig
 import com.stocktrack.app.R
+import com.stocktrack.app.StockViewModel
+import com.stocktrack.app.data.AppConfig
 
-/** Everyone: which version of the app this is, when it was built and by whom. */
+/** Everyone: which version of the app this is, when it was built and by whom, and the app's colors. */
 @Composable
-fun InfoScreen() {
+fun InfoScreen(vm: StockViewModel, config: AppConfig) {
     Column(
         Modifier
             .fillMaxSize()
@@ -61,6 +63,18 @@ fun InfoScreen() {
                 InfoRow(stringResource(R.string.info_build), BuildConfig.VERSION_CODE.toString())
                 InfoRow(stringResource(R.string.info_build_date), BuildConfig.BUILD_DATE)
                 InfoRow(stringResource(R.string.info_built_by), "Arvydas Taraila")
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Panel(Modifier.widthIn(max = 640.dp).fillMaxWidth()) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    stringResource(R.string.gui_scheme_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(stringResource(R.string.gui_scheme_text), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GuiSchemeChips(vm, config)
             }
         }
     }

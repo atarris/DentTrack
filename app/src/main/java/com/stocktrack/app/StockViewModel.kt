@@ -11,6 +11,8 @@ import androidx.room.withTransaction
 import com.google.android.gms.auth.api.identity.Identity
 import com.stocktrack.app.data.ADMIN_NAME
 import com.stocktrack.app.data.ActionType
+import com.stocktrack.app.data.AddCategoryResult
+import com.stocktrack.app.data.AddUserResult
 import com.stocktrack.app.data.AppConfig
 import com.stocktrack.app.data.AppDatabase
 import com.stocktrack.app.data.AppSettings
@@ -21,19 +23,26 @@ import com.stocktrack.app.data.BackupSchedule
 import com.stocktrack.app.data.BackupScheduler
 import com.stocktrack.app.data.Category
 import com.stocktrack.app.data.DEFAULT_UNIT
+import com.stocktrack.app.data.DeleteUserResult
 import com.stocktrack.app.data.DriveBackup
 import com.stocktrack.app.data.MonthlyReport
 import com.stocktrack.app.data.MonthlyReportRunner
 import com.stocktrack.app.data.MonthlyReportScheduler
+import com.stocktrack.app.data.MoveResult
+import com.stocktrack.app.data.StockActions
 import com.stocktrack.app.data.StockImporter
+import com.stocktrack.app.data.GuiScheme
 import com.stocktrack.app.data.Language
 import com.stocktrack.app.data.Item
 import com.stocktrack.app.data.LogEntry
 import com.stocktrack.app.data.ReportBuilder
+import com.stocktrack.app.data.SettingsActions
 import com.stocktrack.app.data.User
 import com.stocktrack.app.data.alertLevel
+import com.stocktrack.app.data.cleanCategoryName
 import com.stocktrack.app.data.isAdminAccount
 import com.stocktrack.app.data.isLow
+import com.stocktrack.app.web.WebServerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,13 +59,13 @@ import kotlinx.coroutines.withContext
 /** One-off message shown in a snackbar. If [shareUri] is set the snackbar offers a "Share" action. */
 data class UiMessage(val text: String, val shareUri: Uri? = null)
 
-private class MoveResult(val error: String?, val updated: Item?)
-
 class StockViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = AppDatabase.get(app)
     private val dao = db.dao()
+    private val actions = StockActions(db)
     private val appSettings = AppSettings(app)
+    private val settingsActions = SettingsActions(app, appSettings)
 
     /** Global settings (low stock threshold, timeout, backup options ...). */
     val config: StateFlow<AppConfig> = appSettings.state
@@ -112,6 +121,8 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         // Make sure a previously chosen backup schedule is still registered.
         BackupScheduler.apply(app, appSettings.state.value, replace = false)
         MonthlyReportScheduler.apply(app, appSettings.state.value.monthlyDrive, replace = false)
+        // The server normally survives the app closing; this brings it back if Android stopped it.
+        if (appSettings.state.value.webServerEnabled) WebServerService.apply(app, true)
     }
 
     private fun who(): String = currentUser.value?.name ?: "Unknown"
@@ -153,11 +164,10 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         val clean = name.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
-            val exists = users.value.orEmpty().any { it.name.equals(clean, ignoreCase = true) }
-            when {
-                clean.equals(ADMIN_NAME, ignoreCase = true) -> say(tr(R.string.msg_reserved_name, ADMIN_NAME))
-                exists -> say(tr(R.string.msg_user_exists, clean))
-                else -> dao.insertUser(User(name = clean))
+            when (actions.addUser(clean)) {
+                AddUserResult.RESERVED -> say(tr(R.string.msg_reserved_name, ADMIN_NAME))
+                AddUserResult.EXISTS -> say(tr(R.string.msg_user_exists, clean))
+                AddUserResult.ADDED -> Unit
             }
         }
     }
@@ -165,13 +175,11 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteUser(user: User) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            if (user.isAdminAccount()) return@launch
-            if (users.value.orEmpty().count { !it.isAdminAccount() } <= 1) {
-                say(tr(R.string.msg_one_user_must_remain))
-                return@launch
+            when (actions.deleteUser(user.id)) {
+                DeleteUserResult.LAST_USER -> say(tr(R.string.msg_one_user_must_remain))
+                DeleteUserResult.NOT_ALLOWED -> Unit
+                DeleteUserResult.DELETED -> if (currentUserId.value == user.id) switchUser()
             }
-            dao.deleteUser(user.id)
-            if (currentUserId.value == user.id) switchUser()
         }
     }
 
@@ -264,7 +272,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         say(if (minutes == 0) tr(R.string.msg_logout_off) else tr(R.string.msg_logout_after, minutes))
     }
 
-    /** Saves the language. The caller restarts the screen to apply it. */
+    /** Saves the language. MainActivity restarts the screen to apply it. */
     fun setLanguage(language: String) {
         if (requireAdmin()) appSettings.setLanguage(language)
     }
@@ -278,20 +286,30 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /** Every user may change this (Info tab), for the whole app. */
+    fun setGuiScheme(scheme: GuiScheme) {
+        appSettings.setGuiScheme(scheme)
+    }
+
+    fun setRandomScheme(enabled: Boolean) {
+        appSettings.setRandomScheme(enabled)
+    }
+
+    fun setHiddenThemes(enabled: Boolean) {
+        if (requireAdmin()) appSettings.setHiddenThemes(enabled)
+    }
+
+    fun setWebServer(enabled: Boolean) {
+        if (!requireAdmin()) return
+        appSettings.setWebServerEnabled(enabled)
+        WebServerService.apply(getApplication(), enabled)
+    }
+
     /** Back to the default settings, schedules included. Stock, log, users and the Admin password stay. */
     fun resetConfiguration() {
         if (!requireAdmin()) return
-        val app = getApplication<Application>()
-        appSettings.state.value.backupFolderUri?.let { folder ->
-            runCatching {
-                app.contentResolver.releasePersistableUriPermission(
-                    Uri.parse(folder), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-            }
-        }
-        appSettings.resetConfig()
-        BackupScheduler.apply(app, appSettings.state.value, replace = true)
-        MonthlyReportScheduler.apply(app, appSettings.state.value.monthlyDrive, replace = true)
+        settingsActions.resetConfiguration()
+        WebServerService.apply(getApplication(), false)
         say(tr(R.string.msg_reset_done))
     }
 
@@ -312,67 +330,20 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun saveItem(item: Item, onSaved: (Long) -> Unit = {}) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            val user = who()
-            val now = System.currentTimeMillis()
-            val savedId = db.withTransaction {
-                val item = item.copy(category = canonicalCategory(item.category))
-                if (item.id == 0L) {
-                    val newId = dao.insertItem(item)
-                    dao.insertLog(
-                        LogEntry(
-                            timestamp = now, userName = user, itemId = newId, itemName = item.name,
-                            type = ActionType.ITEM_ADDED, change = item.quantity,
-                            quantityAfter = item.quantity,
-                            note = if (item.quantity > 0) "Initial stock" else ""
-                        )
-                    )
-                    newId
-                } else {
-                    val old = dao.item(item.id)
-                    if (old == null) {
-                        item.id
-                    } else {
-                        // Quantity only ever changes through check in / check out.
-                        dao.updateItem(item.copy(quantity = old.quantity, createdAt = old.createdAt))
-                        val note = if (old.name != item.name) "Renamed from \"${old.name}\"" else "Details updated"
-                        dao.insertLog(
-                            LogEntry(
-                                timestamp = now, userName = user, itemId = item.id, itemName = item.name,
-                                type = ActionType.ITEM_EDITED, change = 0,
-                                quantityAfter = old.quantity, note = note
-                            )
-                        )
-                        item.id
-                    }
-                }
-            }
-            onSaved(savedId)
+            onSaved(actions.saveItem(item, who()))
         }
     }
 
     // ----------------------------------------------------------- categories
 
-    /** Returns the stored spelling of [name], adding the category when it is new. "" = no category. Call inside a transaction. */
-    private suspend fun canonicalCategory(name: String): String {
-        val clean = name.trim()
-        if (clean.isEmpty()) return ""
-        val found = dao.categoriesOnce().firstOrNull { it.name.equals(clean, ignoreCase = true) }
-        if (found != null) return found.name
-        dao.insertCategory(Category(clean))
-        return clean
-    }
-
     fun addCategory(name: String) {
         if (!requireAdmin()) return
-        val clean = name.trim().replace(Regex("\\s+"), " ")
+        val clean = cleanCategoryName(name)
         if (clean.isEmpty()) return
         viewModelScope.launch {
-            val exists = dao.categoriesOnce().any { it.name.equals(clean, ignoreCase = true) }
-            if (exists) {
-                say(tr(R.string.msg_category_exists, clean))
-            } else {
-                dao.insertCategory(Category(clean))
-                say(tr(R.string.msg_category_added, clean))
+            when (actions.addCategory(clean)) {
+                AddCategoryResult.EXISTS -> say(tr(R.string.msg_category_exists, clean))
+                AddCategoryResult.ADDED -> say(tr(R.string.msg_category_added, clean))
             }
         }
     }
@@ -381,21 +352,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteCategory(name: String) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            val user = who()
-            val changed = db.withTransaction {
-                val count = dao.blankCategory(name)
-                dao.deleteCategory(name)
-                if (count > 0) {
-                    dao.insertLog(
-                        LogEntry(
-                            timestamp = System.currentTimeMillis(), userName = user, itemId = 0L,
-                            itemName = "Category \"$name\"", type = ActionType.ITEM_EDITED, change = 0,
-                            quantityAfter = 0, note = "Category deleted, $count items now have no category"
-                        )
-                    )
-                }
-                count
-            }
+            val changed = actions.deleteCategory(name, who())
             say(if (changed > 0) tr(R.string.msg_category_deleted_items, name, changed) else tr(R.string.msg_category_deleted, name))
         }
     }
@@ -403,19 +360,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteItem(item: Item, onDone: () -> Unit = {}) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            val user = who()
-            db.withTransaction {
-                val cur = dao.item(item.id) ?: return@withTransaction
-                dao.deleteItem(cur.id)
-                dao.insertLog(
-                    LogEntry(
-                        timestamp = System.currentTimeMillis(), userName = user,
-                        itemId = cur.id, itemName = cur.name, type = ActionType.ITEM_REMOVED,
-                        change = -cur.quantity, quantityAfter = 0,
-                        note = if (cur.quantity > 0) "Removed with ${cur.quantity} ${cur.unit} in stock" else ""
-                    )
-                )
-            }
+            actions.deleteItem(item.id, who())
             say(tr(R.string.msg_item_removed, item.name))
             onDone()
         }
@@ -427,30 +372,16 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun moveStock(item: Item, type: String, qty: Int, note: String) {
         if (qty <= 0) return
         viewModelScope.launch {
-            val user = who()
-            val result = db.withTransaction {
-                val cur = dao.item(item.id)
-                    ?: return@withTransaction MoveResult(tr(R.string.msg_item_gone), null)
-                val delta = if (type == ActionType.CHECK_OUT) -qty else qty
-                val newQty = cur.quantity + delta
-                if (newQty < 0) {
-                    return@withTransaction MoveResult(tr(R.string.msg_only_in_stock, cur.quantity, unitText(cur.unit)), null)
+            val updated = when (val result = actions.moveStock(item.id, type, qty, note, who())) {
+                MoveResult.ItemGone -> {
+                    say(tr(R.string.msg_item_gone))
+                    return@launch
                 }
-                val updated = cur.copy(quantity = newQty)
-                dao.updateItem(updated)
-                dao.insertLog(
-                    LogEntry(
-                        timestamp = System.currentTimeMillis(), userName = user,
-                        itemId = cur.id, itemName = cur.name, type = type,
-                        change = delta, quantityAfter = newQty, note = note
-                    )
-                )
-                MoveResult(null, updated)
-            }
-            val updated = result.updated
-            if (result.error != null || updated == null) {
-                say(result.error ?: tr(R.string.msg_could_not_update))
-                return@launch
+                is MoveResult.NotEnough -> {
+                    say(tr(R.string.msg_only_in_stock, result.item.quantity, unitText(result.item.unit)))
+                    return@launch
+                }
+                is MoveResult.Moved -> result.item
             }
             val moved = if (type == ActionType.CHECK_IN) R.string.msg_moved_in else R.string.msg_moved_out
             val unit = unitText(updated.unit)
@@ -468,25 +399,7 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     fun clearStockDatabase(alsoLog: Boolean) {
         if (!requireAdmin()) return
         viewModelScope.launch {
-            val user = who()
-            val count = db.withTransaction {
-                val removed = dao.itemsOnce().size
-                dao.clearItems()
-                dao.clearCategories()
-                if (alsoLog) {
-                    dao.clearLog()
-                } else {
-                    dao.insertLog(
-                        LogEntry(
-                            timestamp = System.currentTimeMillis(), userName = user, itemId = 0L,
-                            itemName = "Stock database", type = ActionType.ITEM_REMOVED, change = 0,
-                            quantityAfter = 0, note = "Cleared, $removed items removed"
-                        )
-                    )
-                }
-                removed
-            }
-            say(tr(R.string.msg_stock_cleared, count))
+            say(tr(R.string.msg_stock_cleared, actions.clearStock(alsoLog, who())))
         }
     }
 
@@ -540,16 +453,10 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
     /** Turns "save to Google Drive on the 1st of every month" on or off. */
     fun setMonthlyDrive(enabled: Boolean) {
         if (!requireAdmin()) return
-        if (enabled && !appSettings.state.value.driveConnected) {
+        if (!settingsActions.setMonthlyDrive(enabled)) {
             say(tr(R.string.msg_connect_drive_first))
             return
         }
-        if (enabled) {
-            // The first automatic report is for the next 1st, not for the current month.
-            appSettings.monthlyKey = MonthlyReportRunner.monthKey(System.currentTimeMillis())
-        }
-        appSettings.setMonthlyDrive(enabled)
-        MonthlyReportScheduler.apply(getApplication(), enabled, replace = true)
         say(tr(if (enabled) R.string.msg_monthly_on else R.string.msg_monthly_off))
     }
 
@@ -567,26 +474,16 @@ class StockViewModel(app: Application) : AndroidViewModel(app) {
 
     // --------------------------------------------------------------- backup
 
-    private fun reschedule() {
-        BackupScheduler.apply(getApplication(), appSettings.state.value, replace = true)
-    }
-
     fun setBackupSchedule(schedule: BackupSchedule) {
-        if (!requireAdmin()) return
-        appSettings.setBackupSchedule(schedule)
-        reschedule()
+        if (requireAdmin()) settingsActions.setBackupSchedule(schedule)
     }
 
     fun setBackupLocal(enabled: Boolean) {
-        if (!requireAdmin()) return
-        appSettings.setBackupLocal(enabled)
-        reschedule()
+        if (requireAdmin()) settingsActions.setBackupLocal(enabled)
     }
 
     fun setBackupDrive(enabled: Boolean) {
-        if (!requireAdmin()) return
-        appSettings.setBackupDrive(enabled)
-        reschedule()
+        if (requireAdmin()) settingsActions.setBackupDrive(enabled)
     }
 
     /** Remembers a folder picked with the system folder picker as the local backup location. */
